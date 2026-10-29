@@ -1,0 +1,14 @@
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+*.csv
+*.xlsx
+*.xls
+.DS_Store
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+artifacts/
