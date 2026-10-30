@@ -38,7 +38,7 @@
   </section>
   <section id="setup" hidden>
     <h2>Open a local export</h2>
-    <p class="muted">Browse local folders to select an export. The file stays in its current location.</p>
+    <p class="muted">Select an export with the macOS file dialog. The file stays in its current location.</p>
     <form id="import-form" class="import-form">
       <label>Export path<span class="file-selection"><input id="path" required placeholder="Select an export"><button id="browse-export" type="button">Browse files</button></span></label>
       <label>Survey profile<select id="reuse-profile"><option value="">New survey</option></select></label>
@@ -47,13 +47,6 @@
       <div class="actions"><button class="primary" name="mode" value="preview">View report</button><button name="mode" value="inspect">Inspect export</button></div>
     </form>
   </section>
-  <dialog id="file-browser" aria-labelledby="file-browser-title">
-    <div class="actions"><h2 id="file-browser-title">Select a survey export</h2><button id="close-browser" type="button">Close</button></div>
-    <p class="fine">Local folders only. No file is uploaded or copied.</p>
-    <p id="browse-error" role="alert" hidden></p>
-    <div class="actions"><button id="browse-parent" type="button">Parent folder</button><code id="browse-path"></code></div>
-    <div id="browse-entries"></div>
-  </dialog>
   <section id="mapping" hidden></section>
   <section id="dashboard" hidden>
     <p id="preview-notice" class="notice" hidden>Quick view uses suggested settings. No profile is saved. Use Review profile to change or save settings. Private contacts stay locked until you confirm consent.</p>

@@ -32,6 +32,11 @@ commands.
 5. After replacing the export, click **Refresh data**. No background refresh
    changes your reading position.
 
+After a plugin update, start a new chat and open Customer Voice there.
+An existing chat can keep its old provider process. Reloading its web page
+does not restart that process. The provider keeps its renderer files in
+memory so a later install cannot mix a new interface with old request handlers.
+
 For updates, use the App's update control or the CLI command below, then start
 a new session. Saved profiles and reading settings stay outside the installed
 plugin and are not replaced by an update.
@@ -87,8 +92,9 @@ for the requested text-question ID, not only the visible page.
 
 ## Import and reuse
 
-1. Select **Open export**, then **Browse files**. Navigate local folders and
-   select a CSV/XLSX export. You can still enter a path, sheet, or header row
+1. Select **Open export**, then **Browse files**. The native macOS file dialog
+   selects a CSV/XLSX export. Cancel keeps the previous selection.
+   You can still enter a path, sheet, or header row
    if needed. The viewer references the file. It does not copy or upload it.
 2. Select **View report** to use suggested defaults. This quick view does not
    save a profile or reading settings. It labels the settings as suggestions.
@@ -264,9 +270,11 @@ and failure retention. It does not open Microsoft sign-in or contact a tenant.
 Use `node tests/contact-browser-check.mjs` with the same Playwright environment
 variables for synthetic address-redaction, consent, contact-display, and
 unsupported-format warning checks.
-The usability check exercises local folder navigation and file selection,
+The usability check exercises file selection and cancellation with a test picker,
 quick view, later profile editing, section tabs, and hover/keyboard tooltips
 with synthetic data.
+The release includes a compiled AppKit file picker. Source runs use Swift
+from the macOS command-line developer tools. No custom folder menu is used.
 
 To check actual Copilot runtime registration and action routing without a model
 call, use the SDK that ships with the installed App:
