@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { readFile, mkdir, open, rename, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import { createDataverse, environment, guid, signIn } from "./dataverse.mjs";
@@ -158,10 +158,24 @@ export async function startViewer(input = {}, options = {}) {
             controller?.abort();
             return { cancelled: Boolean(controller) };
         }
+        if (name === "browse") {
+            if (request.path !== undefined && typeof request.path !== "string") {
+                throw new Error("Select a local folder.");
+            }
+            const path = resolve(request.path || options.browseRoot || homedir());
+            const entries = await readdir(path, { withFileTypes: true });
+            return { path, parent: dirname(path), entries: entries
+                .filter(entry => !entry.name.startsWith(".") && (entry.isDirectory()
+                    || entry.isFile() && [".csv", ".xlsx"].includes(extname(entry.name).toLowerCase())))
+                .map(entry => ({ name: entry.name, directory: entry.isDirectory() }))
+                .sort((a, b) => Number(b.directory) - Number(a.directory) || a.name.localeCompare(b.name)) };
+        }
         if (name === "view") {
             if (!current) throw new Error("Open a survey before saving its reading state.");
+            if (current.record.preview) return { saved: false, preview: true };
             const v = request;
-            if (!["overview", "questions", "contacts", "method"].includes(v.tab)
+            const groupTabs = current.record.profile.fields.filter(f => f.group).map(f => `group:${f.group}`);
+            if (!["overview", "questions", "contacts", "method", ...groupTabs].includes(v.tab)
                 || ![v.scroll, v.listScroll, v.answerPage].every(n => Number.isSafeInteger(n) && n >= 0)
                 || ![v.answerSearch, v.questionSearch].every(s => typeof s === "string" && s.length <= 1000)
                 || (v.selected && !current.record.profile.fields.some(f => f.id === v.selected))) {
@@ -184,11 +198,14 @@ export async function startViewer(input = {}, options = {}) {
             return { saved: true };
         }
         if (name === "scope") {
-            if (!current) throw new Error("Open an export and confirm its profile first.");
+            if (!current) throw new Error("Open an export with View report or confirm its profile first.");
             return current.report;
         }
         if (name === "answers" || name === "contacts") {
             if (!current) throw new Error("Load a survey first.");
+            if (name === "contacts" && current.record.preview) {
+                throw new Error("Review and save the consent mapping before viewing contacts.");
+            }
             if (request.sha256 && request.sha256 !== current.report.source.sha256) {
                 throw new Error("This view is stale. Use the current report.");
             }
@@ -210,8 +227,9 @@ export async function startViewer(input = {}, options = {}) {
                 connection = candidate;
                 return { surveys, config: candidate.config };
             }
-            if (name === "inspect") {
-                const saved = request.id ? await readRecord(root, request.id) : null;
+            if (name === "inspect" || name === "review") {
+                if (name === "review" && !current) throw new Error("Open a report before reviewing its settings.");
+                const saved = name === "review" ? current.record : request.id ? await readRecord(root, request.id) : null;
                 const source = request.surveyId ? {
                     kind: "dataverse", ...connection?.config, surveyId: guid(request.surveyId),
                 } : request.path ? {
@@ -222,26 +240,34 @@ export async function startViewer(input = {}, options = {}) {
                 if (saved && saved.source.kind !== source.kind && (saved.source.kind || source.kind)) {
                     throw new Error("Export and live profiles have separate identities. Create a new profile for this source.");
                 }
-                const captured = await snapshot(source, signal);
+                const captured = name === "review" ? current.snapshot : await snapshot(source, signal);
                 const proposal = await analyze({ snapshot: captured, mode: "inspect" }, { signal });
                 signal.throwIfAborted();
                 const ticket = randomUUID();
                 tickets.clear();
-                tickets.set(ticket, { source, snapshot: captured, sha256: proposal.source.sha256, saved });
+                tickets.set(ticket, { source, snapshot: captured, sha256: proposal.source.sha256, saved,
+                    profile: proposal.profile });
                 return { ...proposal, ticket, previous: saved?.profile || null };
             }
-            if (name === "confirm") {
+            if (name === "confirm" || name === "preview") {
                 const proposal = tickets.get(request.ticket);
                 if (!proposal) throw new Error("Inspect this export again before confirming its profile.");
-                const profile = { ...request.profile, id: proposal.saved?.profile.id || randomUUID(), version: 1 };
+                const preview = name === "preview";
+                const compatible = proposal.saved?.profile.headers.join("\0") === proposal.profile.headers.join("\0")
+                    && proposal.saved.profile.sourceDefinition === proposal.profile.sourceDefinition
+                    && proposal.saved.profile.sourceIdentity === proposal.profile.sourceIdentity;
+                const profile = { ...(preview ? compatible ? proposal.saved.profile : proposal.profile : request.profile),
+                    id: proposal.saved?.profile.id || randomUUID(), version: 1 };
                 const record = { profile, source: proposal.source,
-                    key: proposal.saved?.key || randomBytes(32).toString("hex") };
+                    key: proposal.saved?.key || randomBytes(32).toString("hex"), preview };
                 const report = await analyze({ snapshot: proposal.snapshot, profile, mode: "report",
                     sha256: proposal.sha256 }, { signal });
                 signal.throwIfAborted();
                 record.name = report.source.name;
-                await writeRecord(root, record);
+                if (!preview) await writeRecord(root, record);
                 signal.throwIfAborted();
+                report.preview = preview;
+                if (preview) report.contactEnabled = false;
                 current = { record, report, snapshot: proposal.snapshot };
                 tickets.delete(request.ticket);
                 return report;
@@ -255,6 +281,8 @@ export async function startViewer(input = {}, options = {}) {
                 const report = await analyze({ snapshot: captured, profile: record.profile,
                     mode: "report", filters, population }, { signal });
                 signal.throwIfAborted();
+                report.preview = Boolean(record.preview);
+                if (record.preview) report.contactEnabled = false;
                 current = { record, report, snapshot: captured };
                 if (name === "open") report.view = record.view;
                 return report;

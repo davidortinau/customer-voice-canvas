@@ -143,3 +143,49 @@ test("renderer has no background refresh or source watcher", async () => {
     assert.doesNotMatch(renderer, /setInterval|setTimeout|EventSource|WebSocket/);
     assert.doesNotMatch(server, /watchFile|fs\.watch|setInterval/);
 });
+
+test("local file browsing, quick view, and later profile review preserve the loaded snapshot", async () => {
+    const root = await mkdtemp(join(tmpdir(), "cv-quick-view-"));
+    const storage = join(root, "profiles");
+    const source = join(root, "survey.csv");
+    await mkdir(join(root, "Exports"));
+    await writeFile(join(root, "notes.txt"), "not an export");
+    await writeFile(source, "ID,Recommend this product,Written answer,Consent,Follow-up email\n" +
+        Array.from({ length: 40 }, (_, i) => `${i},9,Useful for task ${i},Yes,person${i}@example.test`).join("\n"));
+    const viewer = await startViewer({}, { storage, browseRoot: root });
+    try {
+        const folder = await viewer.operation("browse");
+        assert.equal(folder.path, root);
+        assert.deepEqual(folder.entries.map(e => [e.name, e.directory]), [["Exports", true], ["survey.csv", false]]);
+        await assert.rejects(viewer.operation("browse", { path: join(root, "missing") }), /ENOENT/);
+        const proposal = await viewer.operation("inspect", { path: source });
+        const report = await viewer.operation("preview", { ticket: proposal.ticket });
+        assert.equal(report.preview, true);
+        assert.equal(report.contactEnabled, false);
+        assert.equal(report.questions.find(q => q.kind === "nps").metric.value, 100);
+        assert.equal((await viewer.operation("config")).surveys.length, 0);
+        await assert.rejects(viewer.operation("contacts"), /confirm consent|consent mapping/);
+        assert.equal((await viewer.operation("filter", { filters: {} })).preview, true);
+        assert.equal((await viewer.operation("view", {})).saved, false);
+        await writeFile(source, "changed columns");
+        const review = await viewer.operation("review");
+        assert.equal(review.source.sha256, report.source.sha256, "Review must not reread a changed source.");
+        review.previous.fields[2].kind = "text";
+        review.previous.fields[2].choices = [];
+        review.previous.fields[2].group = "Written answers";
+        const saved = await viewer.operation("confirm", { ticket: review.ticket, profile: review.previous });
+        assert.equal(saved.preview, false);
+        assert.equal(saved.surveyId, report.surveyId);
+        assert.equal((await viewer.operation("answers", { question: "c3" })).total, 40);
+        assert.equal((await viewer.operation("config")).surveys.length, 1);
+        const state = { tab: "group:Written answers", scroll: 100, listScroll: 0,
+            answerPage: 0, answerSearch: "", questionSearch: "" };
+        assert.equal((await viewer.operation("view", state)).saved, true);
+        await assert.rejects(viewer.operation("view", { ...state, tab: "group:Unknown" }), /Invalid reading state/);
+        assert.equal(JSON.parse(await readFile(join(storage, "views", `${saved.surveyId}.json`), "utf8")).view.tab,
+            "group:Written answers");
+    } finally {
+        await viewer.close();
+        await rm(root, { recursive: true, force: true });
+    }
+});

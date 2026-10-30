@@ -49,6 +49,7 @@ jobs:
           export CUSTOMER_VOICE_PLUGIN_ROOT="$PWD/dist/plugin"
           node tests/contact-browser-check.mjs
           node tests/live-browser-check.mjs
+          node tests/usability-browser-check.mjs
       - name: Upload checked package
         run: tar -C dist/plugin -czf .build/customer-voice-macos-arm64.tar.gz .
       - name: Store checked package

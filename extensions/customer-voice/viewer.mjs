@@ -57,7 +57,7 @@ function options(values, value = "") {
 }
 
 function saveView() {
-    if (!surveyId) return;
+    if (!surveyId || report?.preview) return;
     api("view", { selected, tab, answerSearch, questionSearch, answerPage,
         scroll: Math.round(window.scrollY), listScroll: Math.round($("#question-list")?.scrollTop || 0) })
         .catch(error => {
@@ -80,7 +80,9 @@ function renderMapping() {
       <p class="muted">${proposal.source.rows} responses / ${proposal.source.columns} columns.
       Suggested types are not confirmed question definitions.</p>
       <div class="notice">Check each question type. Set scale order and positive choices only when the survey supports them.
-      Parent matrix prompts and branching are not available in a flat export. Use a group label only when you know the original group.</div>
+      Original pages and branching are not available in a flat export. Section labels come from the saved profile or a bundled suggestion.
+      You can change them below.</div>
+      <button id="quick-view" class="primary">View report with defaults</button>
       <label>Survey title<input id="profile-title" value="${escape(profile.title)}"></label>
       <div class="profile-controls">
         <label>Submission completion date (optional)<select id="submission-field">${options(fieldOptions, profile.submission?.field)}</select></label>
@@ -114,6 +116,7 @@ function renderMapping() {
     $("#mapping").hidden = false;
     $("#setup").hidden = true;
     $("#mapping").scrollIntoView();
+    $("#quick-view").onclick = () => work("Opening report with defaults...", previewReport);
     $("#confirm-profile").onclick = () => work("Checking the confirmed profile...", async () => {
         if (!$("#confirm-mappings").checked) throw new Error("Check the profile confirmation box before saving.");
         for (const row of document.querySelectorAll(".map-row")) {
@@ -143,7 +146,20 @@ function renderMapping() {
         $("#mapping").hidden = true;
         await acceptReport(result);
     });
-    $("#cancel-profile").onclick = () => { $("#mapping").hidden = true; };
+    $("#cancel-profile").onclick = () => { $("#mapping").hidden = true; $("#setup").hidden = Boolean(report); };
+}
+
+async function previewReport() {
+    const result = await api("preview", { ticket: proposal.ticket });
+    tab = "overview"; selected = undefined; answerPage = 0;
+    answerSearch = ""; questionSearch = ""; answers = null; contacts = null;
+    $("#mapping").hidden = true;
+    await acceptReport(result);
+}
+
+function tip(label, count, percent, denominator, extraClass = "") {
+    const text = `${label}: ${percent}% / ${count} of ${denominator} valid answers`;
+    return `class="chart-segment ${extraClass}" tabindex="0" data-tooltip="${escape(text)}" aria-label="${escape(text)}" aria-describedby="chart-tooltip"`;
 }
 
 function metricCard(q) {
@@ -159,33 +175,55 @@ function bars(q) {
         const max = Math.max(1, ...q.distribution.map(x => x.count));
         const colors = ["var(--bad)", "var(--muted)", "var(--good)"];
         return `<div class="histogram" role="img" aria-label="Recommendation score counts from zero through ten">${q.distribution.map(x => `
-          <div class="hist-col"><span>${x.count}</span><div class="hist-bar" style="height:${Math.max(1, x.count / max * 145)}px;background:${colors[+x.label <= 6 ? 0 : +x.label <= 8 ? 1 : 2]}"></div>${x.label}</div>`).join("")}</div>
+          <div class="hist-col"><span>${x.count}</span><div ${tip(`Score ${x.label}`, x.count, x.percent, q.valid, "hist-bar")} style="height:${Math.max(1, x.count / max * 145)}px;background:${colors[+x.label <= 6 ? 0 : +x.label <= 8 ? 1 : 2]}"></div>${x.label}</div>`).join("")}</div>
           ${q.metric ? `<div class="balance">${["detractors", "passives", "promoters"].map((key, i) => `
-          <div style="width:${q.valid ? q.metric[key] / q.valid * 100 : 0}%;background:${colors[i]}"></div>`).join("")}</div>
+          <div ${tip(["Detractors (0-6)", "Passives (7-8)", "Promoters (9-10)"][i], q.metric[key],
+              q.valid ? Math.round(q.metric[key] / q.valid * 1000) / 10 : 0, q.valid)}
+            style="width:${q.valid ? q.metric[key] / q.valid * 100 : 0}%;background:${colors[i]}"></div>`).join("")}</div>
           <div class="legend">${["Detractors (0-6)", "Passives (7-8)", "Promoters (9-10)"].map((label, i) =>
               `<span><i class="swatch" style="background:${colors[i]}"></i>${label}</span>`).join("")}</div>` : ""}`;
     }
     if (!q.distribution) return `<p class="notice">${q.kind === "text"
         ? "Read the written answers in All questions." : "This field has no confirmed chart mapping."}</p>`;
-    return `<div class="horizontal">${q.distribution.map(d => `
+    const stacked = q.kind === "ordered" ? `<div class="balance">${q.distribution.map((d, i) =>
+        `<div ${tip(d.label, d.count, d.percent, q.valid)} style="width:${d.percent}%;background:${scaleColor(i, q.distribution.length)}"></div>`).join("")}</div>` : "";
+    return `${stacked}<div class="horizontal">${q.distribution.map(d => `
       <div class="bar-row"><div class="bar-label">${escape(d.label)}</div>
-        <div class="bar-track"><div class="bar-fill" style="width:${Math.min(100, d.percent)}%"></div></div>
+        <div class="bar-track"><div ${tip(d.label, d.count, d.percent, q.valid)} style="width:${Math.min(100, d.percent)}%;height:100%;background:var(--accent);border-radius:3px"></div></div>
         <div class="bar-value">${d.count} / ${d.percent}%</div></div>`).join("")}</div>
       <p class="fine">Denominator: ${q.valid} valid nonblank answers. ${q.multiSelect
         ? "Multiple selections: each respondent counts once per choice. Percentages can sum above 100%." : ""}
         ${escape(q.units || "")}</p>`;
 }
 
+function scaleColor(index, length) {
+    return `hsl(${205 - index * 120 / Math.max(1, length - 1)} 32% ${48 + index * 4}%)`;
+}
+
 function matrix(group, questions) {
     const domain = questions[0].distribution?.map(d => d.label);
     if (!domain || !questions.every(q => q.kind === "ordered"
         && JSON.stringify(q.distribution.map(d => d.label)) === JSON.stringify(domain))) return "";
-    const colors = domain.map((_, i) => `hsl(${205 - i * 120 / Math.max(1, domain.length - 1)} 32% ${48 + i * 4}%)`);
+    const colors = domain.map((_, i) => scaleColor(i, domain.length));
     return `<section class="panel"><h3>${escape(group)}</h3><div class="legend">${domain.map((v, i) =>
         `<span><i class="swatch" style="background:${colors[i]}"></i>${escape(v)}</span>`).join("")}</div>
       ${questions.map(q => `<div class="bar-row"><span>${escape(q.label)}</span><div class="balance">
-      ${q.distribution.map(d => `<div title="${escape(d.label)}: ${d.count} (${d.percent}%)" style="width:${d.percent}%;background:${colors[domain.indexOf(d.label)]}"></div>`).join("")}
+      ${q.distribution.map(d => `<div ${tip(d.label, d.count, d.percent, q.valid)} style="width:${d.percent}%;background:${colors[domain.indexOf(d.label)]}"></div>`).join("")}
       </div><span class="fine">n=${q.valid}</span></div>`).join("")}</section>`;
+}
+
+function surveyQuestions() {
+    return report.questions.filter(q => !["system", "metadata", "private"].includes(q.kind));
+}
+
+function renderSection(group) {
+    const questions = surveyQuestions().filter(q => q.group === group);
+    return `<p class="overline">SURVEY SECTION</p><h2>${escape(group)}</h2>
+      <p class="fine">${questions.length} questions. Sections use profile group labels, not recovered survey pages.</p>
+      ${matrix(group, questions)}
+      <div class="grid">${questions.map(q => `<article class="panel"><h3>${escape(q.label)}</h3>
+        ${q.metric ? metricCard(q) : ""}
+        ${q.kind === "text" ? `<p class="fine">${q.answered} written answers</p><button data-read-question="${q.id}">Read all answers</button>` : bars(q)}</article>`).join("")}</div>`;
 }
 
 function renderOverview() {
@@ -195,7 +233,7 @@ function renderOverview() {
     return `<p class="overline">AT A GLANCE</p><h2>The shape of this survey.</h2>
       <p class="muted">${report.scope.selected} selected / ${report.scope.eligible} eligible / ${report.scope.submitted} submitted / ${report.scope.exported} source rows.
       ${escape(report.scope.population)}</p>
-      <div class="metrics"><article class="metric"><p class="fine">Confirmed coverage</p>
+      <div class="metrics"><article class="metric"><p class="fine">Question coverage</p>
       <div class="metric-value">${questions.length}</div><h3>Survey questions</h3>
       <p class="fine">${report.questions.length} source columns accounted for. ${questions.filter(q => q.kind === "text").length} written-answer fields.</p></article>
       ${metrics.map(metricCard).join("")}</div>
@@ -277,11 +315,30 @@ function renderAnswers() {
 }
 
 async function renderContent() {
+    $("#chart-tooltip").hidden = true;
+    const groups = [...new Set(surveyQuestions().map(q => q.group).filter(Boolean))];
+    if (tab.startsWith("group:") && !groups.includes(tab.slice(6))) tab = "overview";
+    $("#section-tabs").hidden = !groups.length;
+    $("#section-tabs").innerHTML = groups.map(group =>
+        `<button data-tab="${escape(`group:${group}`)}">${escape(group)}</button>`).join("");
     document.querySelectorAll("[data-tab]").forEach(button => {
         if (button.dataset.tab === tab) button.setAttribute("aria-current", "page");
         else button.removeAttribute("aria-current");
+        button.onclick = () => work("Opening survey view...", async () => {
+            tab = button.dataset.tab; await renderContent(); saveView();
+        });
     });
     if (tab === "overview") $("#content").innerHTML = renderOverview();
+    if (tab.startsWith("group:")) {
+        $("#content").innerHTML = renderSection(tab.slice(6));
+        $("#content").querySelectorAll("[data-read-question]").forEach(button => {
+            button.onclick = () => work("Loading written answers...", async () => {
+                selected = button.dataset.readQuestion; tab = "questions";
+                answers = null; answerPage = 0; answerSearch = ""; questionSearch = "";
+                await renderContent(); saveView();
+            });
+        });
+    }
     if (tab === "questions") {
         const questions = report.questions.filter(q => !["system", "metadata", "private"].includes(q.kind));
         if (!questions.some(q => q.id === selected)) selected = questions[0]?.id;
@@ -313,13 +370,14 @@ async function renderContent() {
       <h2>A clear measurement contract.</h2>
       <div class="notice">${escape(report.scope.population)} Blanks are not proof that a question was skipped.
       Scores use each question's valid nonblank denominator. Below five: score suppressed. Below 30: directional.
+      ${report.preview ? "Quick view: question types, groups, and scoring are suggestions, not confirmed survey definitions." : "Profile settings are saved."}
       Positive-share choices and exclusions must be confirmed. NPS uses the standard 0-10 definition.</div>
       <p class="fine">SHA-256: ${escape(report.source.sha256)}. Header row: ${report.source.header}.
       Source sheet: ${escape(report.source.sheet)}. ${report.source.rows} rows, ${report.source.columns} columns.
       ${escape(report.source.warning || "")}
       Data reads occur only on explicit import, open, or refresh. Filters and private answers use the loaded in-memory snapshot. No polling or source-file watcher is used.</p>
       <p class="fine">${escape(report.warning)}</p>
-      <div class="table-wrap"><table class="audit"><thead><tr><th>Column</th><th>Original header</th><th>Confirmed role</th><th>Answered</th><th>Blank</th></tr></thead>
+      <div class="table-wrap"><table class="audit"><thead><tr><th>Column</th><th>Original header</th><th>${report.preview ? "Suggested role" : "Confirmed role"}</th><th>Answered</th><th>Blank</th></tr></thead>
       <tbody>${report.questions.map(q => `<tr><td>${q.id}</td><td>${escape(q.header || "[blank header]")}</td><td>${escape(q.kind)}</td><td>${q.answered}</td><td>${q.blank}</td></tr>`).join("")}</tbody></table></div>`;
 }
 
@@ -330,6 +388,7 @@ async function acceptReport(result, persist = true) {
     $("#start").hidden = true;
     $("#setup").hidden = true;
     $("#dashboard").hidden = false;
+    $("#preview-notice").hidden = !result.preview;
     $("#title").textContent = result.title;
     $("#subtitle").textContent = result.scope.population;
     $("#source-name").textContent = result.source.name;
@@ -357,17 +416,18 @@ async function acceptReport(result, persist = true) {
 $("#start-import").onclick = $("#open-export").onclick = showSetup;
 $("#import-form").onsubmit = event => {
     event.preventDefault();
+    const quick = event.submitter?.value === "preview";
     work("Inspecting source columns...", async () => {
         proposal = await api("inspect", {
             path: $("#path").value.trim(), sheet: $("#sheet").value.trim() || 0,
             header: Number($("#header-row").value), id: $("#reuse-profile").value || undefined,
         });
-        renderMapping();
+        if (quick) await previewReport();
+        else renderMapping();
     });
 };
-$("#review-profile").onclick = () => work("Reading the source for profile review...", async () => {
-    $("#cancel-read").hidden = false;
-    proposal = await api("inspect", { id: surveyId }); renderMapping();
+$("#review-profile").onclick = () => work("Opening profile settings...", async () => {
+    proposal = await api("review"); renderMapping();
 });
 $("#refresh").onclick = () => work("Reading a complete new snapshot...", async position => {
     $("#cancel-read").hidden = false;
@@ -406,10 +466,62 @@ $("#connect-form").onsubmit = event => {
         });
     });
 };
-document.querySelectorAll("[data-tab]").forEach(button => {
-    button.onclick = () => work("Opening survey view...", async () => {
-        tab = button.dataset.tab; await renderContent(); saveView();
-    });
+let browsePath;
+async function browse(path) {
+    $("#browse-error").hidden = true;
+    try {
+        const folder = await api("browse", { path });
+        browsePath = folder.path;
+        $("#browse-path").textContent = folder.path;
+        $("#browse-parent").disabled = folder.path === folder.parent;
+        $("#browse-parent").onclick = () => browse(folder.parent);
+        $("#browse-entries").innerHTML = folder.entries.map((entry, index) =>
+            `<button type="button" data-entry="${index}">${entry.directory ? "Folder: " : "Export: "}${escape(entry.name)}</button>`).join("")
+            || '<p class="fine">No folders or CSV/XLSX exports here.</p>';
+        $("#browse-entries").querySelectorAll("button").forEach(button => {
+            button.onclick = () => {
+                const entry = folder.entries[Number(button.dataset.entry)];
+                const selectedPath = `${folder.path.replace(/[/\\]$/, "")}/${entry.name}`;
+                if (entry.directory) browse(selectedPath);
+                else {
+                    $("#path").value = selectedPath;
+                    $("#file-browser").close();
+                }
+            };
+        });
+    } catch (error) {
+        $("#browse-error").textContent = `Cannot open this folder: ${error.message}`;
+        $("#browse-error").hidden = false;
+    }
+}
+$("#browse-export").onclick = async () => {
+    $("#file-browser").showModal();
+    await browse(browsePath);
+};
+$("#close-browser").onclick = () => $("#file-browser").close();
+
+function showTooltip(segment, x, y) {
+    const tooltip = $("#chart-tooltip");
+    tooltip.textContent = segment.dataset.tooltip;
+    tooltip.hidden = false;
+    const rect = segment.getBoundingClientRect();
+    tooltip.style.left = `${Math.max(8, Math.min(x ?? rect.left, innerWidth - tooltip.offsetWidth - 8))}px`;
+    tooltip.style.top = `${Math.max(8, Math.min((y ?? rect.bottom) + 10, innerHeight - tooltip.offsetHeight - 8))}px`;
+}
+document.addEventListener("pointerover", event => {
+    const segment = event.target.closest("[data-tooltip]");
+    if (segment) showTooltip(segment, event.clientX, event.clientY);
+});
+document.addEventListener("pointerout", event => {
+    if (event.target.closest("[data-tooltip]")) $("#chart-tooltip").hidden = true;
+});
+document.addEventListener("focusin", event => {
+    const segment = event.target.closest("[data-tooltip]");
+    if (segment) showTooltip(segment);
+});
+document.addEventListener("focusout", () => { $("#chart-tooltip").hidden = true; });
+document.addEventListener("keydown", event => {
+    if (event.key === "Escape") $("#chart-tooltip").hidden = true;
 });
 window.addEventListener("pagehide", saveView);
 document.addEventListener("scrollend", () => {
