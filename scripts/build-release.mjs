@@ -23,7 +23,8 @@ const run = (command, args) => {
     if (result.error) throw result.error;
     if (result.status !== 0) throw new Error(`${command} failed with status ${result.status}.`);
 };
-const engineArch = runCapture(python, ["-c", "import platform; print(platform.machine().lower())"]);
+const engineArch = runCapture(python, ["-c",
+    "import sys, sysconfig, platform; print(sysconfig.get_platform().split('-')[-1].lower() if sys.platform == 'win32' else platform.machine().lower())"]);
 const normalizedEngineArch = { aarch64: "arm64", arm64: "arm64", amd64: "x64", x86_64: "x64" }[engineArch];
 if (normalizedEngineArch !== process.arch && !(target === "win32-arm64" && normalizedEngineArch === "x64")) {
     throw new Error(`Reader architecture ${engineArch} does not match ${target}.`);

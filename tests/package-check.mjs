@@ -36,6 +36,17 @@ try {
     const release = JSON.parse(await readFile(join(plugin, "release.json"), "utf8"));
     assert.equal(release.platform, process.platform);
     assert.equal(release.arch, process.arch);
+    const expectedEngineArch = process.platform === "win32" ? "x64" : process.arch;
+    assert.equal(release.engineArch, expectedEngineArch);
+    const platform = JSON.parse(await readFile(join(plugin, "extensions/customer-voice/runtime/platform.json"), "utf8"));
+    assert.equal(platform.engineArch, expectedEngineArch);
+    if (process.platform === "win32") {
+        const executable = await readFile(join(plugin, "extensions/customer-voice/runtime/cv-engine/cv-engine.exe"));
+        assert.equal(executable.readUInt16LE(0), 0x5a4d, "The reader must be a Windows executable.");
+        const header = executable.readUInt32LE(0x3c);
+        assert.equal(executable.readUInt32LE(header), 0x4550);
+        assert.equal(executable.readUInt16LE(header + 4), 0x8664, "Both Windows packages currently require the approved x64 reader.");
+    }
     const pickerPath = process.platform === "win32" ? "file-picker.ps1"
         : process.platform === "linux" ? "runtime/cv-file-picker/cv-file-picker" : "runtime/cv-file-picker";
     const picker = await stat(join(plugin, "extensions/customer-voice", pickerPath));
