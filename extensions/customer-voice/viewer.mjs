@@ -466,7 +466,7 @@ $("#connect-form").onsubmit = event => {
         });
     });
 };
-$("#browse-export").onclick = () => work("Select an export in the macOS file dialog...", async () => {
+$("#browse-export").onclick = () => work("Select an export in the system file dialog...", async () => {
     const result = await api("browse");
     if (result.path !== null) $("#path").value = result.path;
 });

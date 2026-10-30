@@ -7,8 +7,15 @@ import sysconfig
 
 root = Path(sys.argv[1])
 root.mkdir(parents=True, exist_ok=True)
-shutil.copyfile(Path(sysconfig.get_path("stdlib")) / "LICENSE.txt", root / "Python.txt")
-for name in ["pandas", "numpy", "openpyxl", "et_xmlfile", "python-dateutil", "pytz", "tzdata", "six"]:
+license_paths = [Path(sysconfig.get_path("stdlib")) / "LICENSE.txt", Path(sys.base_prefix) / "LICENSE.txt"]
+python_license = next((path for path in license_paths if path.is_file()), None)
+if python_license is None:
+    raise FileNotFoundError("Cannot locate the Python license.")
+shutil.copyfile(python_license, root / "Python.txt")
+names = ["pandas", "numpy", "openpyxl", "et_xmlfile", "python-dateutil", "pytz", "tzdata", "six"]
+if sys.platform == "linux":
+    names.append("dbus-next")
+for name in names:
     package = importlib.metadata.distribution(name)
     target = root / name
     target.mkdir()

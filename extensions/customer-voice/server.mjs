@@ -25,11 +25,11 @@ export async function analyze(request, { signal } = {}) {
     if (packaged) {
         const target = JSON.parse(await readFile(join(here, "runtime", "platform.json"), "utf8"));
         if (target.platform !== process.platform || target.arch !== process.arch) {
-            throw new Error("This release requires macOS on Apple Silicon. Other platforms need the source setup.");
+            throw new Error(`This package targets ${target.platform}-${target.arch}. Install the Customer Voice package for ${process.platform}-${process.arch}.`);
         }
     }
     const launchers = packaged
-        ? [[join(here, "runtime", "cv-engine", "cv-engine")]]
+        ? [[join(here, "runtime", "cv-engine", process.platform === "win32" ? "cv-engine.exe" : "cv-engine")]]
         : process.env.CUSTOMER_VOICE_PYTHON
         ? [[process.env.CUSTOMER_VOICE_PYTHON]]
         : process.platform === "win32" ? [["py", "-3"], ["python"], ["python3"]] : [["python3"], ["python"]];
@@ -37,7 +37,7 @@ export async function analyze(request, { signal } = {}) {
         try {
             return await new Promise((accept, reject) => {
                 const child = spawn(launcher, packaged ? [] : [...args, join(here, "engine.py")], {
-                    stdio: ["pipe", "pipe", "pipe"], signal,
+                    stdio: ["pipe", "pipe", "pipe"], signal, windowsHide: true,
                 });
                 let stdout = "", stderr = "", exceeded = false;
                 const timer = setTimeout(() => child.kill(), 60000);

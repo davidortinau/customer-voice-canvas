@@ -15,7 +15,33 @@ not a fully validated live connector.
 
 ## Install and open a survey
 
-The packaged release supports **macOS on Apple Silicon**. The Copilot App
+Version 0.4.0 adds these package targets. Their marketplace entries appear
+only after all required GitHub checks pass and the packages are published.
+Until then, the current channel remains macOS version 0.3.1.
+
+| System | Package name | Built package branch |
+|---|---|---|
+| macOS, Apple Silicon | `customer-voice-canvas` | `stable` |
+| Windows x64 | `customer-voice-windows-x64` | `stable-windows-x64` |
+| Windows 11 ARM64 | `customer-voice-windows-arm64` | `stable-windows-arm64` |
+| Ubuntu or Fedora x64 | `customer-voice-linux-x64` | `stable-linux-x64` |
+| Ubuntu or Fedora ARM64 | `customer-voice-linux-arm64` | `stable-linux-arm64` |
+
+Intel Macs are not included. Install **one** package that matches the
+architecture of the Copilot Node host. Installing multiple variants can
+register duplicate Canvas types. Windows 11 ARM64 uses an x64 export reader
+under Windows emulation. Its plugin host and system file dialog run through
+the ARM64 Windows host. It is not a native ARM64 Python reader.
+
+The Linux compatibility checks target Ubuntu 24.04, Ubuntu 26.04, and Fedora 44
+on each architecture. A graphical desktop, a session D-Bus service,
+`xdg-desktop-portal`, and a desktop backend such as GNOME, GTK, or KDE are
+required for file selection. Container checks exercise the reader and portal
+protocol, not the visible desktop dialog. Package availability does not imply
+that a Copilot App build with Canvas support is available for that system.
+Confirm the host is available before distributing a Linux package.
+
+The Copilot App
 supplies Node. The plugin includes its survey reader and dependencies. You do
 not need to clone the source, build the plugin, or run Python or npm setup
 commands.
@@ -23,7 +49,7 @@ commands.
 1. In the Copilot App, add `davidortinau/customer-voice-canvas` as a
    marketplace in **Customize**. Your GitHub account needs access to this
    private repository.
-2. Select **customer-voice-canvas** and install it.
+2. Select the package for your system from the table and install it.
 3. Start a new session so the runtime loads the installed plugin. Ask:
    **Open Customer Voice.**
 4. Select **Browse files**, choose an export, then select **View report**.
@@ -48,7 +74,11 @@ copilot plugin install customer-voice-canvas@customer-voice-canvas
 copilot plugin update customer-voice-canvas@customer-voice-canvas
 ```
 
-The marketplace points to the built `stable` branch, not source on `main`.
+For Windows or Linux, replace the package name before `@` with the matching
+name from the table. The marketplace name after `@` stays
+`customer-voice-canvas`.
+
+The marketplace points to built package branches, not source on `main`.
 Do not install the source repository directly with `copilot plugin install
 davidortinau/customer-voice-canvas`; that bypasses the packaged marketplace
 entry and requires the developer setup below.
@@ -71,7 +101,9 @@ The extension uses the Copilot SDK supplied by the runtime. Do not install or
 vendor `@github/copilot-sdk`. To use another Python executable, set
 `CUSTOMER_VOICE_PYTHON` to its full path. The default launcher search uses
 `python3`/`python` on macOS and Linux, and `py -3`/`python`/`python3` on Windows.
-Only macOS has been exercised.
+For Linux source file selection, also install `dbus-next==0.2.3`.
+Windows uses the system Windows PowerShell and Windows Forms dialog.
+macOS source file selection requires Swift from the command-line tools.
 
 ## Local plugin development
 
@@ -92,7 +124,7 @@ for the requested text-question ID, not only the visible page.
 
 ## Import and reuse
 
-1. Select **Open export**, then **Browse files**. The native macOS file dialog
+1. Select **Open export**, then **Browse files**. The system file dialog
    selects a CSV/XLSX export. Cancel keeps the previous selection.
    You can still enter a path, sheet, or header row
    if needed. The viewer references the file. It does not copy or upload it.
@@ -273,8 +305,11 @@ unsupported-format warning checks.
 The usability check exercises file selection and cancellation with a test picker,
 quick view, later profile editing, section tabs, and hover/keyboard tooltips
 with synthetic data.
-The release includes a compiled AppKit file picker. Source runs use Swift
-from the macOS command-line developer tools. No custom folder menu is used.
+The macOS release includes a compiled AppKit file picker. Windows uses a
+Windows Forms file dialog. Linux includes a desktop-portal client. No custom
+folder menu is used. Linux protocol checks use a private D-Bus session and a
+simulated portal to check selection, cancellation, and invalid URI rejection.
+They do not prove that a desktop backend displays the dialog.
 
 To check actual Copilot runtime registration and action routing without a model
 call, use the SDK that ships with the installed App:
@@ -308,16 +343,31 @@ your real survey profiles.
 
 ## Build and publish
 
-`.github/workflows/release.yml` checks source and builds a macOS arm64 package
+`.github/workflows/release.yml` checks source and builds all five packages
 on each pull request and push to `main`. It bundles the Python reader with
 PyInstaller and includes locked Node dependencies. Package checks run with
 Python and npm unavailable. Synthetic browser checks exercise the built
-viewer. CI does not contain or upload real survey responses.
+viewer on macOS, Windows x64, and both Linux architectures. Windows ARM64 runs
+source and package checks but skips the Chromium browser checks because
+Playwright does not supply a native Windows ARM64 Chromium build. CI does not
+contain or upload real survey responses.
 
-Only a successful `main` run can publish to `stable`. Publication appends a
+Both Linux packages must also pass CSV and XLSX import, scoring, manual
+refresh, and portal-protocol checks in Ubuntu 24.04, Ubuntu 26.04, and Fedora 44
+containers. The same package is used across the three distributions.
+
+Only a successful `main` run can publish to the five package branches.
+Publication appends a
 commit without force-pushing. Pull requests have read-only repository access
 and cannot publish. `release.json` records the source commit and version.
-If a build or check fails, the existing stable package stays unchanged.
+If a build or check fails, publication does not start. Publication validates
+all downloaded package identities before it updates any branch. Branch
+updates are separate Git pushes, not one transaction. If a push fails, some
+channels can be newer than others; rerun the workflow after correcting the
+failure. The marketplace advertises new channels only after all branch pushes
+succeed. Its first platform-catalog update is a separate bot commit on `main`.
+Downloadable `.tar.gz` packages are retained as workflow artifacts for 14 days;
+the built branches are the persistent installation source.
 
 To reproduce a build on an Apple Silicon Mac:
 
@@ -331,9 +381,25 @@ node tests/package-check.mjs
 The output is `dist/plugin`. Use a fresh checkout for each build. Update
 `.github/plugin/plugin.json` for each release. The reader is ad-hoc signed by
 PyInstaller, not Developer ID signed or notarized. Do not bypass macOS
-security warnings. Intel Macs, Windows, and Linux currently need source setup.
+security warnings. Windows packages are not code signed. Do not bypass system
+security warnings on any platform.
+
+### Custom icon
+
+The icon asset is still pending. Recommended design files are an SVG with a
+square `viewBox="0 0 512 512"`, a transparent 512 by 512 PNG, and a 32 by 32
+preview. These are design recommendations, not confirmed host requirements.
+The current Canvas SDK does not expose a custom icon field. An icon can be
+added inside the viewer after the asset is supplied.
 
 ## Remaining release gates
+
+The 0.4.0 Windows and Linux x64 packages still need their hosted runner
+checks. The local Linux ARM64 package passed reader and portal-protocol
+checks on all three distributions listed above. The macOS package passed
+reader and browser checks. Windows and Linux still need a user-run native
+file-dialog check in a desktop session and an installation/open check in a
+compatible Canvas host. These checks are not replaced by container tests.
 
 The direct connection needs an approved Entra public-client registration,
 tenant ID, Dataverse environment URL, and reader access. No cloud registration,

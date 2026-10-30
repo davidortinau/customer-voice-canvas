@@ -15,9 +15,21 @@ concurrency:
 
 jobs:
   package:
-    # macos-14 is an Apple Silicon runner. The build script checks the target.
-    runs-on: macos-14
-    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-14, target: darwin-arm64, python-arch: arm64 }
+          - { runner: windows-2025, target: win32-x64, python-arch: x64 }
+          # Windows 11 emulates the x64 reader; the Node host remains ARM64.
+          - { runner: windows-11-arm, target: win32-arm64, python-arch: x64 }
+          - { runner: ubuntu-24.04, target: linux-x64, python-arch: x64 }
+          - { runner: ubuntu-24.04-arm, target: linux-arm64, python-arch: arm64 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -26,6 +38,7 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.13"
+          architecture: ${{ matrix.python-arch }}
       - name: Install build dependencies
         run: |
           python -m pip install -r requirements-build.txt
@@ -36,64 +49,94 @@ jobs:
           node --test tests/server.test.mjs tests/dataverse.test.mjs
           for file in extensions/customer-voice/*.mjs scripts/*.mjs tests/*.mjs; do node --check "$file"; done
       - name: Build self-contained plugin
+        env:
+          CUSTOMER_VOICE_BUILD_PYTHON: python
         run: node scripts/build-release.mjs
       - name: Check package without Python or npm
         run: |
           python scripts/make-test-export.py "$RUNNER_TEMP/synthetic.xlsx"
           CUSTOMER_VOICE_TEST_XLSX="$RUNNER_TEMP/synthetic.xlsx" node tests/package-check.mjs
       - name: Check packaged viewer in a browser
+        # Chromium does not provide a native Windows ARM64 browser binary.
+        if: matrix.target != 'win32-arm64'
         run: |
           npm install --prefix "$RUNNER_TEMP/browser" --no-audit --no-fund --ignore-scripts playwright@1.58.2
-          "$RUNNER_TEMP/browser/node_modules/.bin/playwright" install chromium
+          "$RUNNER_TEMP/browser/node_modules/.bin/playwright" install --with-deps chromium
           export PLAYWRIGHT_MODULE="$RUNNER_TEMP/browser/node_modules/playwright/index.mjs"
-          export CUSTOMER_VOICE_PLUGIN_ROOT="$PWD/dist/plugin"
+          export CUSTOMER_VOICE_PLUGIN_ROOT="$(node -p "process.cwd() + '/dist/plugin'")"
           node tests/contact-browser-check.mjs
           node tests/live-browser-check.mjs
           node tests/usability-browser-check.mjs
-      - name: Upload checked package
-        run: tar -C dist/plugin -czf .build/customer-voice-macos-arm64.tar.gz .
-      - name: Store checked package
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - name: Check Linux portal protocol
+        if: startsWith(matrix.target, 'linux-')
+        run: dbus-run-session -- python tests/linux-portal-check.py
+      - name: Archive checked package
+        run: tar -C dist/plugin -czf ".build/customer-voice-${{ matrix.target }}.tar.gz" .
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: customer-voice-macos-arm64
-          path: .build/customer-voice-macos-arm64.tar.gz
+          name: customer-voice-${{ matrix.target }}
+          path: .build/customer-voice-${{ matrix.target }}.tar.gz
           include-hidden-files: true
-          retention-days: 7
+          retention-days: 14
+
+  linux-compatibility:
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, arm64]
+        image: ["ubuntu:24.04", "ubuntu:26.04", "fedora:44"]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: customer-voice-linux-${{ matrix.arch }}
+          path: download
+      - name: Check the same package on the target distribution
+        env:
+          IMAGE: ${{ matrix.image }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          mkdir -p dist/plugin
+          tar -xzf "download/customer-voice-linux-$ARCH.tar.gz" -C dist/plugin
+          docker run --rm -v "$PWD:/work" -v "$(readlink -f "$(command -v node)"):/usr/local/bin/node:ro" \
+            -w /work "$IMAGE" bash scripts/check-linux-distribution.sh
+
+  publication-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+      - run: node tests/publish-check.mjs
 
   publish:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: package
+    needs: [package, linux-compatibility, publication-check]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: customer-voice-macos-arm64
+          pattern: customer-voice-*
+          merge-multiple: true
           path: download
-      - name: Publish checked package to stable
+      - name: Publish checked platform packages
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           SOURCE_SHA: ${{ github.sha }}
-        shell: bash
         run: |
-          set -euo pipefail
-          mkdir plugin
-          tar -xzf download/customer-voice-macos-arm64.tar.gz -C plugin
-          cd plugin
-          test "$(node -p "require('./release.json').sourceCommit")" = "$SOURCE_SHA"
-          git init -b stable
-          git remote add origin "https://github.com/$REPOSITORY.git"
           export GIT_CONFIG_COUNT=1
           export GIT_CONFIG_KEY_0=credential.helper
           export GIT_CONFIG_VALUE_0='!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f'
-          if git ls-remote --exit-code --heads origin stable; then
-            git fetch --depth=1 origin stable
-            git update-ref refs/heads/stable FETCH_HEAD
-          fi
-          git add --all --force
-          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-            commit -m "build: publish checked plugin from $SOURCE_SHA"
-          git push origin stable
+          node scripts/publish-release.mjs

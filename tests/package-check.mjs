@@ -36,8 +36,11 @@ try {
     const release = JSON.parse(await readFile(join(plugin, "release.json"), "utf8"));
     assert.equal(release.platform, process.platform);
     assert.equal(release.arch, process.arch);
-    const picker = await stat(join(plugin, "extensions/customer-voice/runtime/cv-file-picker"));
-    assert.ok(picker.isFile() && (picker.mode & 0o111), "The release must include an executable native file picker.");
+    const pickerPath = process.platform === "win32" ? "file-picker.ps1"
+        : process.platform === "linux" ? "runtime/cv-file-picker/cv-file-picker" : "runtime/cv-file-picker";
+    const picker = await stat(join(plugin, "extensions/customer-voice", pickerPath));
+    assert.ok(picker.isFile() && (process.platform === "win32" || (picker.mode & 0o111)),
+        "The release must include its native file picker.");
     async function checkLinks(folder) {
         for (const entry of await readdir(folder, { withFileTypes: true })) {
             const path = join(folder, entry.name);
