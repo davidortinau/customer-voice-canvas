@@ -15,7 +15,7 @@ not a fully validated live connector.
 
 ## Install and open a survey
 
-Version 0.4.0 provides these packages. Marketplace entries are advertised only
+Version 0.4.1 provides these packages. Marketplace entries are advertised only
 after all required GitHub checks pass and the packages are published.
 
 | System | Package name | Built package branch |
@@ -31,6 +31,8 @@ architecture of the Copilot Node host. Installing multiple variants can
 register duplicate Canvas types. Windows 11 ARM64 uses an x64 export reader
 under Windows emulation. Its plugin host and system file dialog run through
 the ARM64 Windows host. It is not a native ARM64 Python reader.
+Version 0.4.1 corrects the reader architecture recorded in the Windows ARM64
+package metadata and checks the executable header before publication.
 
 The Linux compatibility checks target Ubuntu 24.04, Ubuntu 26.04, and Fedora 44
 on each architecture. A graphical desktop, a session D-Bus service,
