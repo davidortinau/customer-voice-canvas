@@ -1,7 +1,7 @@
 {
-  "version": "0.4.0",
+  "version": "0.4.1",
   "platform": "darwin",
   "arch": "arm64",
   "engineArch": "arm64",
-  "sourceCommit": "d08059f1c7e58f896beb6a73ee93e79f46344415"
+  "sourceCommit": "dc62d44436364410ad334a3349bcee56542f77a9"
 }
