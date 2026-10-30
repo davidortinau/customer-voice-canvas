@@ -25,8 +25,10 @@ commands.
    private repository.
 2. Select **customer-voice-canvas** and install it.
 3. Start a new session so the runtime loads the installed plugin. Ask:
-   **Open Customer Voice with `/full/path/to/survey.xlsx`.**
-4. Inspect the proposed mappings, confirm them, and open the report.
+   **Open Customer Voice.**
+4. Select **Browse files**, choose an export, then select **View report**.
+   The suggested defaults open the report without a mapping form. Use
+   **Review profile** if a setting needs a change or you want to save it.
 5. After replacing the export, click **Refresh data**. No background refresh
    changes your reading position.
 
@@ -85,12 +87,17 @@ for the requested text-question ID, not only the visible page.
 
 ## Import and reuse
 
-1. Select **Open export**. Enter a full CSV/XLSX path, optional sheet name, and
-   header row. The viewer references the file. It does not copy it.
-2. Inspect every proposed field role. All source columns are accounted for,
-   including private, system, unknown, and duplicate-header columns.
-3. Check ordered choices, optional positive choices, exclusions, population
-   eligibility, and follow-up consent. Save the profile.
+1. Select **Open export**, then **Browse files**. Navigate local folders and
+   select a CSV/XLSX export. You can still enter a path, sheet, or header row
+   if needed. The viewer references the file. It does not copy or upload it.
+2. Select **View report** to use suggested defaults. This quick view does not
+   save a profile or reading settings. It labels the settings as suggestions.
+   Private contacts stay locked until you confirm the consent mapping.
+3. Use **Review profile** at any time to change settings and save them.
+   Review uses the loaded snapshot, not an unexpected new file read. Check
+   field roles, ordered choices, positive choices, exclusions, population
+   eligibility, and follow-up consent. **Inspect export** still opens the
+   mapping form first. That form also has **View report with defaults**.
 4. Use **Refresh data** after replacing the file with a complete updated
    export. There is no polling, file watcher, or background sync.
 5. To use a new filename, select **Open export**, choose the saved survey
@@ -118,6 +125,18 @@ wording, and leaves uncertain fields for review. Generic imports use observed
 values and header wording. A semicolon alone never proves multiple selection,
 and numeric values alone never prove NPS. Ranking and file-upload semantics
 are not inferred. Keep unsupported fields unknown/private until mapped.
+
+Section tabs use group labels from a saved profile or a bundled survey preset.
+They do not reconstruct the original Customer Voice pages. The MAUI preset
+has sections such as Experience, Editors, and AI and tools. The developer
+survey preset marks uncertain parent prompts in its group labels. Unknown
+exports without group labels keep the standard views; no page structure is
+invented. Edit a field's group in Review profile to change section membership.
+
+Hover a colored chart segment, or focus it with the keyboard, to see its
+label, percentage, count, and valid-answer denominator. This includes ordered
+satisfaction bars, grouped scales, NPS segments, and individual chart bars.
+Press Escape to dismiss the tooltip.
 
 The bundled MAUI profile retains the completion-date gate, recent-use
 eligibility, seven-level Top-3-Box satisfaction method, source metadata, and
@@ -233,9 +252,11 @@ No live source is used by these browser checks.
 To exercise the connection controls with synthetic authentication and data:
 
 ```bash
-PLAYWRIGHT_MODULE=/full/path/playwright-core/index.mjs \
-CHROMIUM_EXECUTABLE=/full/path/chromium \
+export PLAYWRIGHT_MODULE=/full/path/playwright-core/index.mjs \
+CHROMIUM_EXECUTABLE=/full/path/chromium
+
 node tests/live-browser-check.mjs
+node tests/usability-browser-check.mjs
 ```
 
 This checks the approval control, survey selection, shared profile/charts,
@@ -243,6 +264,9 @@ and failure retention. It does not open Microsoft sign-in or contact a tenant.
 Use `node tests/contact-browser-check.mjs` with the same Playwright environment
 variables for synthetic address-redaction, consent, contact-display, and
 unsupported-format warning checks.
+The usability check exercises local folder navigation and file selection,
+quick view, later profile editing, section tabs, and hover/keyboard tooltips
+with synthetic data.
 
 To check actual Copilot runtime registration and action routing without a model
 call, use the SDK that ships with the installed App:
