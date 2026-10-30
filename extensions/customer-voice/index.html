@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Customer Voice</title>
+  <link rel="stylesheet" href="/viewer.css">
+  <script type="module" src="/viewer.mjs"></script>
+</head>
+<body>
+<div class="page">
+  <header class="masthead">
+    <div><p class="eyebrow">CUSTOMER VOICE / SURVEY EXPLORER</p><h1 id="title">Every answer has a place.</h1>
+      <p class="muted" id="subtitle">Your survey. Your scales. One clear view.</p></div>
+    <button id="open-export">Open export</button>
+  </header>
+  <div id="error" role="alert" hidden></div>
+  <p id="status" role="status" aria-live="polite"></p><button id="cancel-read" hidden>Cancel live read</button>
+  <section id="start" class="welcome">
+    <div><span class="overline">01 / LOCAL FIRST</span><h2>Bring your next survey.</h2>
+      <p>Open an Excel or CSV export. Check the proposed question types and scoring rules once. Reuse the profile when new responses arrive.</p>
+      <button id="start-import" class="primary">Open an export</button>
+      <p class="fine">Data stays on this computer. No polling. Refresh only when you choose.</p></div>
+    <div><span class="overline">YOUR LIBRARY</span><h2>Saved surveys</h2><p id="library-warning" role="alert" hidden></p><div id="library"></div>
+      <details class="connection"><summary>Direct Customer Voice connection</summary>
+        <p id="connection"></p>
+        <form id="connect-form">
+          <label>Dataverse environment URL<input id="environment" required type="url" placeholder="https://org.crm.dynamics.com"></label>
+          <label>Tenant ID<input id="tenant" required></label>
+          <label>Public-client application ID<input id="client-id" required></label>
+          <p class="fine">Use an approved registration with a mobile/desktop localhost redirect. This opens Microsoft sign-in in your browser. The delegated scope is user_impersonation. It is not a read-only permission. This connector issues GET requests only. No registration or permission is created here.</p>
+          <label><input id="approve-signin" type="checkbox" required>I approve sign-in to this environment with this application.</label>
+          <button type="submit" class="primary">Sign in and list surveys</button>
+        </form>
+        <div id="live-surveys"></div>
+        <p class="fine">Direct access is an experimental connector until a real tenant read is reconciled with an export. Commercial Microsoft cloud only. Live snapshots stay in memory.</p>
+      </details></div>
+  </section>
+  <section id="setup" hidden>
+    <h2>Open a local export</h2>
+    <p class="muted">Enter a full file path. This operation references the file. It does not copy respondent data.</p>
+    <form id="import-form" class="import-form">
+      <label>Export path<input id="path" required placeholder="/path/to/survey.xlsx"></label>
+      <label>Survey profile<select id="reuse-profile"><option value="">New survey</option></select></label>
+      <label>Sheet name (blank = first sheet)<input id="sheet"></label>
+      <label>Header row<input id="header-row" type="number" min="1" max="100" value="1" required></label>
+      <button class="primary">Inspect export</button>
+    </form>
+  </section>
+  <section id="mapping" hidden></section>
+  <section id="dashboard" hidden>
+    <div class="source-strip"><div><span class="overline">LOADED SNAPSHOT</span><strong id="source-name"></strong>
+      <code id="fingerprint"></code></div><div><span id="counts"></span><p class="fine" id="loaded-time"></p></div>
+      <div class="actions"><button id="review-profile">Review profile</button><button id="refresh" class="primary">Refresh data</button></div></div>
+    <details class="filters"><summary>Cohort filters</summary>
+      <label>Response population<select id="population"><option value="eligible">Configured eligible responses</option><option value="submitted">All submitted responses</option></select></label>
+      <div id="filters" class="filter-grid"></div><button id="reset">Reset filters</button></details>
+    <nav class="tabs" aria-label="Survey views">
+      <button data-tab="overview" aria-current="page">Overview</button>
+      <button data-tab="questions">All questions</button>
+      <button data-tab="contacts">Private follow-up</button>
+      <button data-tab="method">Method and column audit</button>
+    </nav>
+    <main id="content"></main>
+    <footer><span>Manual refresh only. This snapshot does not change while you read.</span><span>Local / private review</span></footer>
+  </section>
+</div>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "name": "customer-voice-canvas",
+  "version": "0.2.0",
+  "description": "Explore Customer Voice exports with confirmed survey profiles, charts, and private answer review.",
+  "author": { "name": "David Ortinau" },
+  "keywords": ["customer-voice", "survey", "canvas"],
+  "extensions": "extensions",
+  "skills": "skills"
+}
