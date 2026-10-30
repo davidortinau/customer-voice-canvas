@@ -1,6 +1,6 @@
 {
-  "version": "0.2.0",
+  "version": "0.2.1",
   "platform": "darwin",
   "arch": "arm64",
-  "sourceCommit": "0a466c48caa310a8c145e00e148d810dbeffd3ad"
+  "sourceCommit": "53a2f259bb538fd43b4050b1e030b9e38f2a8282"
 }
