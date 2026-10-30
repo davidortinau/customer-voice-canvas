@@ -3,7 +3,9 @@ import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { startViewer } from "../extensions/customer-voice/server.mjs";
+const { startViewer } = await import(process.env.CUSTOMER_VOICE_PLUGIN_ROOT
+    ? pathToFileURL(resolve(process.env.CUSTOMER_VOICE_PLUGIN_ROOT, "extensions/customer-voice/server.mjs")).href
+    : new URL("../extensions/customer-voice/server.mjs", import.meta.url).href);
 
 const { chromium } = await import(pathToFileURL(resolve(process.env.PLAYWRIGHT_MODULE)).href);
 const root = await mkdtemp(join(tmpdir(), "cv-contact-browser-"));

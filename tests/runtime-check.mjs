@@ -7,7 +7,9 @@ import { setTimeout as delay } from "node:timers/promises";
 
 const { CopilotClient, RuntimeConnection } = await import(
     pathToFileURL(resolve(process.env.COPILOT_SDK_MODULE)).href);
-const plugin = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const plugin = process.env.CUSTOMER_VOICE_PLUGIN_ROOT
+    ? resolve(process.env.CUSTOMER_VOICE_PLUGIN_ROOT)
+    : resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = await mkdtemp(join(tmpdir(), "cv-native-runtime-"));
 const client = new CopilotClient({
     connection: RuntimeConnection.forStdio({

@@ -12,3 +12,6 @@ __pycache__/
 *.key
 *.pfx
 artifacts/
+.build-venv/
+.build/
+dist/

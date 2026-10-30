@@ -137,7 +137,8 @@ def inspect(headers, rows, provenance):
     profile = {"version": 1, "title": Path(provenance["name"]).stem,
                "headers": headers, "fields": fields, "eligibility": None,
                "followup": None, "metadataSource": False}
-    for path in (Path(__file__).resolve().parents[2] / "profiles").glob("*.json"):
+    presets = Path(sys._MEIPASS) / "profiles" if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[2] / "profiles"
+    for path in presets.glob("*.json"):
         preset = json.loads(path.read_text())
         if len(headers) != preset["columns"] or any(
                 headers[int(i) - 1] != title for i, title in preset["signature"].items()):

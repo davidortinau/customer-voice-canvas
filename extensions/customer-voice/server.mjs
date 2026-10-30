@@ -5,6 +5,7 @@ import { readFile, mkdir, open, rename, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
 import { createDataverse, environment, guid, signIn } from "./dataverse.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -19,13 +20,22 @@ const validId = value => typeof value === "string" && /^[a-f0-9-]{36}$/.test(val
 
 export async function analyze(request, { signal } = {}) {
     signal?.throwIfAborted();
-    const launchers = process.env.CUSTOMER_VOICE_PYTHON
+    const packaged = existsSync(join(here, "runtime", "platform.json"));
+    if (packaged) {
+        const target = JSON.parse(await readFile(join(here, "runtime", "platform.json"), "utf8"));
+        if (target.platform !== process.platform || target.arch !== process.arch) {
+            throw new Error("This release requires macOS on Apple Silicon. Other platforms need the source setup.");
+        }
+    }
+    const launchers = packaged
+        ? [[join(here, "runtime", "cv-engine", "cv-engine")]]
+        : process.env.CUSTOMER_VOICE_PYTHON
         ? [[process.env.CUSTOMER_VOICE_PYTHON]]
         : process.platform === "win32" ? [["py", "-3"], ["python"], ["python3"]] : [["python3"], ["python"]];
     for (const [launcher, ...args] of launchers) {
         try {
             return await new Promise((accept, reject) => {
-                const child = spawn(launcher, [...args, join(here, "engine.py")], {
+                const child = spawn(launcher, packaged ? [] : [...args, join(here, "engine.py")], {
                     stdio: ["pipe", "pipe", "pipe"], signal,
                 });
                 let stdout = "", stderr = "", exceeded = false;
@@ -61,7 +71,8 @@ export async function analyze(request, { signal } = {}) {
             throw error;
         }
     }
-    throw new Error("Python 3 was not found. Install Python and the packages in requirements.txt.");
+    throw new Error(packaged ? "The packaged survey reader is missing. Update or reinstall the plugin."
+        : "Python 3 was not found. Install Python and the packages in requirements.txt.");
 }
 
 async function writeRecord(root, record) {

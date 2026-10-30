@@ -11,7 +11,39 @@ marketplace install/update/restart checks are still open. The existing MAUI
 viewer is not changed. This is an early private release, not a fully validated
 live connector.
 
-## Run the export preview
+## Install and open a survey
+
+The packaged release supports **macOS on Apple Silicon**. The Copilot App
+supplies Node. The plugin includes its survey reader and dependencies. You do
+not need Git, Python, npm, a source clone, or a build command to use it.
+
+1. In the Copilot App, add `davidortinau/customer-voice-canvas` as a
+   marketplace in **Customize**. Your GitHub account needs access to this
+   private repository.
+2. Select **customer-voice-canvas** and install it.
+3. Start a new session so the runtime loads the installed plugin. Ask:
+   **Open Customer Voice with `/full/path/to/survey.xlsx`.**
+4. Inspect the proposed mappings, confirm them, and open the report.
+5. After replacing the export, click **Refresh data**. No background refresh
+   changes your reading position.
+
+For updates, use the App's update control or the CLI command below, then start
+a new session. Saved profiles and reading settings stay outside the installed
+plugin and are not replaced by an update.
+
+```bash
+copilot plugin marketplace add davidortinau/customer-voice-canvas
+copilot plugin install customer-voice-canvas@customer-voice-canvas
+# Later:
+copilot plugin update customer-voice-canvas@customer-voice-canvas
+```
+
+The marketplace points to the built `stable` branch, not source on `main`.
+Do not install the source repository directly with `copilot plugin install
+davidortinau/customer-voice-canvas`; that bypasses the packaged marketplace
+entry and requires the developer setup below.
+
+## Run from source
 
 Requires Node.js 22+ and Python 3.10+ with pandas and openpyxl.
 
@@ -31,37 +63,14 @@ vendor `@github/copilot-sdk`. To use another Python executable, set
 `python3`/`python` on macOS and Linux, and `py -3`/`python`/`python3` on Windows.
 Only macOS has been exercised.
 
-## Install from the private marketplace
-
-Authorized users can add `davidortinau/customer-voice-canvas` as a marketplace
-in the Copilot App's **Customize** view, then browse and install
-**customer-voice-canvas**. The private repository must be accessible to the
-account used by the App. It is not listed in a built-in public catalog.
-
-The CLI equivalent is:
-
-```bash
-copilot plugin marketplace add davidortinau/customer-voice-canvas
-copilot plugin install customer-voice-canvas@customer-voice-canvas
-```
-
-Install the Python dependencies before opening an export. For the experimental
-live connector, run `npm ci --ignore-scripts` in the installed
-`extensions/customer-voice` folder. This uses the bundled lockfile. No secrets
-or tenant settings belong in the installed plugin folder. Profiles stay in
-user storage when the plugin is updated.
-
 ## Local plugin development
 
 ```bash
 copilot --plugin-dir "$PWD" plugin list
-copilot plugin marketplace add "$PWD"
-copilot plugin install customer-voice-canvas@customer-voice-canvas
 ```
 
-Local marketplace installation references this folder. It does not publish or
-copy the source. It takes effect in the next session. In the Copilot App, add
-the local marketplace through Customize, then browse and install the plugin.
+Use `--plugin-dir` for source development. The marketplace entry deliberately
+uses the checked remote package, even when its catalog is opened locally.
 Native App installation is a separate acceptance check; CLI discovery alone
 does not prove that the App can render the registered Canvas.
 
@@ -247,6 +256,33 @@ It checks native plugin discovery, Canvas open/close, input validation,
 reserved-action rejection, actual workbook import, and full-answer access
 through runtime actions. It does not replace a native App marketplace
 install/update/restart check.
+
+## Build and publish
+
+`.github/workflows/release.yml` checks source and builds a macOS arm64 package
+on each pull request and push to `main`. It bundles the Python reader with
+PyInstaller and includes locked Node dependencies. Package checks run with
+Python and npm unavailable. Synthetic browser checks exercise the built
+viewer. CI does not contain or upload real survey responses.
+
+Only a successful `main` run can publish to `stable`. Publication appends a
+commit without force-pushing. Pull requests have read-only repository access
+and cannot publish. `release.json` records the source commit and version.
+If a build or check fails, the existing stable package stays unchanged.
+
+To reproduce a build on an Apple Silicon Mac:
+
+```bash
+python3 -m venv .build-venv
+.build-venv/bin/python -m pip install -r requirements-build.txt
+CUSTOMER_VOICE_BUILD_PYTHON="$PWD/.build-venv/bin/python" node scripts/build-release.mjs
+node tests/package-check.mjs
+```
+
+The output is `dist/plugin`. Use a fresh checkout for each build. Update
+`.github/plugin/plugin.json` for each release. The reader is ad-hoc signed by
+PyInstaller, not Developer ID signed or notarized. Do not bypass macOS
+security warnings. Intel Macs, Windows, and Linux currently need source setup.
 
 ## Remaining release gates
 

@@ -5,7 +5,11 @@
     {
       "name": "customer-voice-canvas",
       "description": "Customer Voice export analysis Canvas.",
-      "source": "./"
+      "source": {
+        "source": "github",
+        "repo": "davidortinau/customer-voice-canvas",
+        "ref": "stable"
+      }
     }
   ]
 }
