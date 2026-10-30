@@ -1,0 +1,40 @@
+{
+  "title": "MAUI Happiness Tracking Survey",
+  "columns": 37,
+  "signature": {
+    "6": "Did you use .NET MAUI in the last 60 days?",
+    "9": "2",
+    "11": "How likely is it that you would recommend .NET MAUI to a friend or colleague?",
+    "26": "What is the main problem you want to solve, or the main goal you want to reach, by adding AI features to your application?",
+    "37": "Personalized data"
+  },
+  "eligibility": { "field": "c6", "value": "Yes" },
+  "submission": { "field": "c3", "kind": "date" },
+  "metadataSource": true,
+  "followup": { "contact": "c36", "addressIsConsent": true },
+  "overrides": [
+    { "start": 6, "label": "Recent MAUI use", "kind": "choice", "choices": ["Yes", "No"], "group": "Audience", "filter": true },
+    { "start": 7, "end": 8, "kind": "choice", "group": "Audience", "filter": true },
+    { "start": 9, "label": "Overall MAUI satisfaction", "kind": "ordered", "group": "Experience", "metricLabel": "CSAT (Top-3-Box)", "filter": false,
+      "choices": ["Extremely Dissatisfied", "Moderately Dissatisfied", "Slightly Dissatisfied", "Neither", "Slightly Satisfied", "Moderately Satisfied", "Extremely Satisfied"],
+      "positive": ["Slightly Satisfied", "Moderately Satisfied", "Extremely Satisfied"] },
+    { "start": 10, "kind": "choice", "group": "Audience", "filter": true },
+    { "start": 11, "label": "Recommendation score", "kind": "nps", "group": "Experience", "filter": false },
+    { "start": 12, "kind": "text", "group": "Written answers", "choices": [], "filter": false },
+    { "start": 13, "kind": "choice", "group": "Audience", "filter": true },
+    { "start": 14, "end": 15, "kind": "multiple", "group": "Audience", "filter": true },
+    { "start": 16, "end": 17, "kind": "choice", "group": "Editors", "filter": true },
+    { "start": 18, "kind": "choice", "group": "AI and tools", "filter": true },
+    { "start": 19, "kind": "choice", "group": "AI and tools", "filter": false },
+    { "start": 20, "end": 23, "kind": "ordered", "group": "Tool satisfaction", "filter": false,
+      "choices": ["Very dissatisfied", "Dissatisfied", "Neither", "Satisfied", "Very satisfied", "n/a"],
+      "exclude": ["n/a"] },
+    { "start": 24, "kind": "choice", "group": "AI and tools", "filter": true },
+    { "start": 25, "end": 27, "kind": "text", "group": "Written answers", "choices": [], "filter": false },
+    { "start": 28, "end": 33, "kind": "ordered", "group": "Feature satisfaction", "filter": false,
+      "choices": ["Extremely Dissatisfied", "Dissatisfied", "Somewhat Dissatisfied", "Neither", "Somewhat Satisfied", "Satisfied", "Extremely Satisfied", "n.a"],
+      "exclude": ["n.a"] },
+    { "start": 34, "end": 35, "kind": "text", "group": "Written answers", "choices": [], "filter": false },
+    { "start": 36, "kind": "private", "choices": [], "filter": false }
+  ]
+}
