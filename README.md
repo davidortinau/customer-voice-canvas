@@ -15,9 +15,8 @@ not a fully validated live connector.
 
 ## Install and open a survey
 
-Version 0.4.0 adds these package targets. Their marketplace entries appear
-only after all required GitHub checks pass and the packages are published.
-Until then, the current channel remains macOS version 0.3.1.
+Version 0.4.0 provides these packages. Marketplace entries are advertised only
+after all required GitHub checks pass and the packages are published.
 
 | System | Package name | Built package branch |
 |---|---|---|
@@ -394,10 +393,11 @@ added inside the viewer after the asset is supplied.
 
 ## Remaining release gates
 
-The 0.4.0 Windows and Linux x64 packages still need their hosted runner
-checks. The local Linux ARM64 package passed reader and portal-protocol
-checks on all three distributions listed above. The macOS package passed
-reader and browser checks. Windows and Linux still need a user-run native
+All five 0.4.0 packages passed their hosted build and package checks. Both
+Linux architectures passed compatibility checks on all three distributions.
+The [first successful multi-platform release run](https://github.com/davidortinau/customer-voice-canvas/actions/runs/41096167398)
+records those results. macOS, Windows x64, and both Linux architectures also
+passed the packaged browser checks. Windows and Linux still need a user-run native
 file-dialog check in a desktop session and an installation/open check in a
 compatible Canvas host. These checks are not replaced by container tests.
 
