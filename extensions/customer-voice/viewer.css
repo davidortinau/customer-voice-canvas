@@ -64,13 +64,6 @@ code { font: 10px/1.5 var(--font-mono,monospace); color: var(--muted); overflow-
 .file-selection { display: flex; align-items: end; gap: 8px; }
 .file-selection input { min-width: 0; }
 .file-selection button { flex-shrink: 0; }
-dialog { color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 24px; width: min(700px, 94vw); }
-dialog::backdrop { background: #0008; }
-dialog .actions { flex-wrap: wrap; margin-block: 12px; }
-#browse-entries { max-height: 55vh; overflow-y: auto; }
-#browse-entries button { display: block; width: 100%; text-align: left; margin-top: 6px; overflow-wrap: anywhere; }
-#browse-path { overflow-wrap: anywhere; }
-#browse-error { color: var(--bad); }
 .section-tabs { gap: 18px; font-size: 12px; }
 #chart-tooltip { position: fixed; z-index: 20; pointer-events: none; max-width: min(340px, calc(100vw - 16px)); background: var(--ink); color: var(--paper); padding: 10px 14px; border-radius: 6px; font-size: 12px; box-shadow: 0 3px 14px #0004; }
 .chart-segment { cursor: help; }

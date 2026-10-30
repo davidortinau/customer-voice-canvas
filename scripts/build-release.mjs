@@ -32,12 +32,14 @@ for (const name of [".github/plugin", "profiles", "skills", "README.md"]) {
 }
 const extension = join(output, "extensions", "customer-voice");
 await mkdir(extension, { recursive: true });
-for (const name of ["extension.mjs", "server.mjs", "dataverse.mjs", "index.html",
+for (const name of ["extension.mjs", "server.mjs", "dataverse.mjs", "file-picker.mjs", "index.html",
     "viewer.mjs", "viewer.css", "package.json", "package-lock.json", "node_modules"]) {
     await cp(join(root, "extensions", "customer-voice", name), join(extension, name), { recursive: true, verbatimSymlinks: true });
 }
 await cp(join(root, ".build", "engine", "cv-engine"), join(extension, "runtime", "cv-engine"),
     { recursive: true, verbatimSymlinks: true });
+run("/usr/bin/swiftc", ["extensions/customer-voice/file-picker.swift", "-o",
+    join(extension, "runtime", "cv-file-picker")]);
 run(python, ["scripts/collect-licenses.py", join(output, "licenses")]);
 await writeFile(join(extension, "runtime", "platform.json"),
     JSON.stringify({ platform: process.platform, arch: process.arch }) + "\n");

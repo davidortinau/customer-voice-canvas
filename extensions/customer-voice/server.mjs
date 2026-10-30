@@ -3,17 +3,18 @@ import { spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { readFile, mkdir, open, rename, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
-import { dirname, join, resolve, extname } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
 import { createDataverse, environment, guid, signIn } from "./dataverse.mjs";
+import { pickExport } from "./file-picker.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const assets = new Map([
+const assets = new Map(await Promise.all([
     ["/", ["index.html", "text/html; charset=utf-8"]],
     ["/viewer.mjs", ["viewer.mjs", "text/javascript; charset=utf-8"]],
     ["/viewer.css", ["viewer.css", "text/css; charset=utf-8"]],
-]);
+].map(async ([route, [file, type]]) => [route, [await readFile(join(here, file)), type]])));
 const dataRoot = () => join(process.env.COPILOT_HOME || join(homedir(), ".copilot"),
     "extensions", "customer-voice-canvas", "artifacts");
 const validId = value => typeof value === "string" && /^[a-f0-9-]{36}$/.test(value);
@@ -159,16 +160,10 @@ export async function startViewer(input = {}, options = {}) {
             return { cancelled: Boolean(controller) };
         }
         if (name === "browse") {
-            if (request.path !== undefined && typeof request.path !== "string") {
-                throw new Error("Select a local folder.");
-            }
-            const path = resolve(request.path || options.browseRoot || homedir());
-            const entries = await readdir(path, { withFileTypes: true });
-            return { path, parent: dirname(path), entries: entries
-                .filter(entry => !entry.name.startsWith(".") && (entry.isDirectory()
-                    || entry.isFile() && [".csv", ".xlsx"].includes(extname(entry.name).toLowerCase())))
-                .map(entry => ({ name: entry.name, directory: entry.isDirectory() }))
-                .sort((a, b) => Number(b.directory) - Number(a.directory) || a.name.localeCompare(b.name)) };
+            if (busy) throw new Error("A survey change is in progress. Wait for it to finish.");
+            busy = true;
+            try { return await (options.pickExport || pickExport)({ signal: lifetime.signal }); }
+            finally { busy = false; }
         }
         if (name === "view") {
             if (!current) throw new Error("Open a survey before saving its reading state.");
@@ -303,8 +298,8 @@ export async function startViewer(input = {}, options = {}) {
         const url = new URL(req.url, "http://127.0.0.1");
         try {
             if (assets.has(url.pathname) && req.method === "GET") {
-                const [file, type] = assets.get(url.pathname);
-                res.writeHead(200, { "Content-Type": type }).end(await readFile(join(here, file)));
+                const [content, type] = assets.get(url.pathname);
+                res.writeHead(200, { "Content-Type": type }).end(content);
                 return;
             }
             if (url.pathname === "/favicon.ico") { res.writeHead(204).end(); return; }

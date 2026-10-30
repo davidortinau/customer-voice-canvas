@@ -14,7 +14,9 @@ const source = join(root, "Exports", "synthetic.csv");
 const choices = ["Very dissatisfied", "Somewhat dissatisfied", "Neither satisfied nor dissatisfied", "Somewhat satisfied", "Very satisfied"];
 await writeFile(source, "ID,Recommend this product,Satisfaction,Written answer\n" +
     Array.from({ length: 40 }, (_, i) => `${i},${i % 11},${choices[i % 5]},Useful for task ${i}`).join("\n"));
-const viewer = await startViewer({}, { storage: join(root, "profiles"), browseRoot: root });
+let picks = 0;
+const viewer = await startViewer({}, { storage: join(root, "profiles"),
+    pickExport: async () => ({ path: picks++ ? null : source }) });
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_EXECUTABLE, headless: true });
 const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
 const errors = [];
@@ -24,9 +26,11 @@ try {
     await page.goto(viewer.url); await idle();
     await page.getByRole("button", { name: "Open an export", exact: true }).click();
     await page.getByRole("button", { name: "Browse files", exact: true }).click();
-    await page.getByRole("button", { name: "Folder: Exports", exact: true }).click();
-    await page.getByRole("button", { name: "Export: synthetic.csv", exact: true }).click();
+    await idle();
     assert.equal(await page.locator("#path").inputValue(), source);
+    await page.getByRole("button", { name: "Browse files", exact: true }).click();
+    await idle();
+    assert.equal(await page.locator("#path").inputValue(), source, "Cancel must preserve the previous selection.");
     await page.getByRole("button", { name: "View report", exact: true }).click();
     await page.locator("#dashboard:not([hidden])").waitFor(); await idle();
     assert.equal(await page.locator("#mapping").isVisible(), false);
@@ -61,7 +65,7 @@ try {
     await page.setViewportSize({ width: 390, height: 844 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
     assert.deepEqual(errors, []);
-    console.log("Usability browser check passed: browse/select file, quick view without saved mappings, later review, group tabs, all answers, hover/focus percentages, narrow layout.");
+    console.log("Usability browser check passed: picker selection/cancellation wiring (test picker), quick view without saved mappings, later review, group tabs, all answers, hover/focus percentages, narrow layout.");
 } finally {
     await browser.close();
     await viewer.close();

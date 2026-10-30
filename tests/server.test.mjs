@@ -1,9 +1,37 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtemp, mkdir, writeFile, readFile, rm, readdir, stat } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, rm, readdir, stat, copyFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { analyze, startViewer } from "../extensions/customer-voice/server.mjs";
+import { pathToFileURL } from "node:url";
+
+test("a running provider keeps matching renderer assets during an on-disk update", async () => {
+    const root = await mkdtemp(join(tmpdir(), "cv-assets-update-"));
+    let viewer, second;
+    try {
+        for (const file of ["server.mjs", "dataverse.mjs", "file-picker.mjs", "index.html", "viewer.mjs", "viewer.css"]) {
+            await copyFile(new URL(`../extensions/customer-voice/${file}`, import.meta.url), join(root, file));
+        }
+        const module = await import(pathToFileURL(join(root, "server.mjs")).href);
+        viewer = await module.startViewer({}, { storage: join(root, "profiles") });
+        const original = await readFile(join(root, "viewer.mjs"), "utf8");
+        await writeFile(join(root, "viewer.mjs"), "// renderer from a newer release");
+        assert.equal(await (await fetch(new URL("/viewer.mjs", viewer.url))).text(), original);
+        second = await module.startViewer({}, { storage: join(root, "profiles") });
+        assert.equal(await (await fetch(new URL("/viewer.mjs", second.url))).text(), original);
+        const updated = await import(`${pathToFileURL(join(root, "server.mjs")).href}?updated`);
+        const fresh = await updated.startViewer({}, { storage: join(root, "profiles") });
+        try {
+            assert.equal(await (await fetch(new URL("/viewer.mjs", fresh.url))).text(),
+                "// renderer from a newer release");
+        } finally { await fresh.close(); }
+    } finally {
+        await viewer?.close();
+        await second?.close();
+        await rm(root, { recursive: true, force: true });
+    }
+});
 
 test("import, save, reopen, filter, explicit refresh, privacy, and snapshot failure", async () => {
     const root = await mkdtemp(join(tmpdir(), "customer-voice-test-"));
@@ -152,12 +180,11 @@ test("local file browsing, quick view, and later profile review preserve the loa
     await writeFile(join(root, "notes.txt"), "not an export");
     await writeFile(source, "ID,Recommend this product,Written answer,Consent,Follow-up email\n" +
         Array.from({ length: 40 }, (_, i) => `${i},9,Useful for task ${i},Yes,person${i}@example.test`).join("\n"));
-    const viewer = await startViewer({}, { storage, browseRoot: root });
+    let picks = 0;
+    const viewer = await startViewer({}, { storage, pickExport: async () => ({ path: picks++ ? null : source }) });
     try {
-        const folder = await viewer.operation("browse");
-        assert.equal(folder.path, root);
-        assert.deepEqual(folder.entries.map(e => [e.name, e.directory]), [["Exports", true], ["survey.csv", false]]);
-        await assert.rejects(viewer.operation("browse", { path: join(root, "missing") }), /ENOENT/);
+        assert.deepEqual(await viewer.operation("browse"), { path: source });
+        assert.deepEqual(await viewer.operation("browse"), { path: null });
         const proposal = await viewer.operation("inspect", { path: source });
         const report = await viewer.operation("preview", { ticket: proposal.ticket });
         assert.equal(report.preview, true);

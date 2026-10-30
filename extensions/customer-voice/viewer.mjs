@@ -466,39 +466,10 @@ $("#connect-form").onsubmit = event => {
         });
     });
 };
-let browsePath;
-async function browse(path) {
-    $("#browse-error").hidden = true;
-    try {
-        const folder = await api("browse", { path });
-        browsePath = folder.path;
-        $("#browse-path").textContent = folder.path;
-        $("#browse-parent").disabled = folder.path === folder.parent;
-        $("#browse-parent").onclick = () => browse(folder.parent);
-        $("#browse-entries").innerHTML = folder.entries.map((entry, index) =>
-            `<button type="button" data-entry="${index}">${entry.directory ? "Folder: " : "Export: "}${escape(entry.name)}</button>`).join("")
-            || '<p class="fine">No folders or CSV/XLSX exports here.</p>';
-        $("#browse-entries").querySelectorAll("button").forEach(button => {
-            button.onclick = () => {
-                const entry = folder.entries[Number(button.dataset.entry)];
-                const selectedPath = `${folder.path.replace(/[/\\]$/, "")}/${entry.name}`;
-                if (entry.directory) browse(selectedPath);
-                else {
-                    $("#path").value = selectedPath;
-                    $("#file-browser").close();
-                }
-            };
-        });
-    } catch (error) {
-        $("#browse-error").textContent = `Cannot open this folder: ${error.message}`;
-        $("#browse-error").hidden = false;
-    }
-}
-$("#browse-export").onclick = async () => {
-    $("#file-browser").showModal();
-    await browse(browsePath);
-};
-$("#close-browser").onclick = () => $("#file-browser").close();
+$("#browse-export").onclick = () => work("Select an export in the macOS file dialog...", async () => {
+    const result = await api("browse");
+    if (result.path !== null) $("#path").value = result.path;
+});
 
 function showTooltip(segment, x, y) {
     const tooltip = $("#chart-tooltip");
