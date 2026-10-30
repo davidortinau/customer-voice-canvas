@@ -6,16 +6,19 @@ filters, and follow-up consent in a reusable survey profile.
 
 **Status:** both export journeys are implemented and tested: the .NET Developer
 Survey and MAUI HaTS. The direct connector has synthetic API and browser checks,
-but no real Microsoft sign-in or tenant read has been performed. Native App
-marketplace install/update/restart checks are still open. The existing MAUI
-viewer is not changed. This is an early private release, not a fully validated
-live connector.
+but no real Microsoft sign-in or tenant read has been performed. The packaged
+release is installed locally. Marketplace CLI installation and update, and
+native Canvas discovery and opening in a new App chat, have passed. App
+Customize install/update controls and a full App restart remain untested.
+The existing MAUI viewer is not changed. This is an early private release,
+not a fully validated live connector.
 
 ## Install and open a survey
 
 The packaged release supports **macOS on Apple Silicon**. The Copilot App
 supplies Node. The plugin includes its survey reader and dependencies. You do
-not need Git, Python, npm, a source clone, or a build command to use it.
+not need to clone the source, build the plugin, or run Python or npm setup
+commands.
 
 1. In the Copilot App, add `davidortinau/customer-voice-canvas` as a
    marketplace in **Customize**. Your GitHub account needs access to this
@@ -257,6 +260,20 @@ reserved-action rejection, actual workbook import, and full-answer access
 through runtime actions. It does not replace a native App marketplace
 install/update/restart check.
 
+For an actual installed-version upgrade check, use a previous installed
+version and a newer published version:
+
+```bash
+CUSTOMER_VOICE_PLUGIN_ROOT="$HOME/.copilot/installed-plugins/customer-voice-canvas/customer-voice-canvas" \
+CUSTOMER_VOICE_TEST_UPDATE=yes CUSTOMER_VOICE_EXPECT_VERSION=0.2.1 \
+node tests/update-check.mjs
+```
+
+This command updates the normal installed plugin. It uses synthetic data and
+temporary profiles, checks that the saved profile and reading position are
+unchanged, then reopens the report with the new package. It does not change
+your real survey profiles.
+
 ## Build and publish
 
 `.github/workflows/release.yml` checks source and builds a macOS arm64 package
@@ -293,9 +310,12 @@ permission grant, sign-in, or live response read has been performed. The
 must still be checked in that environment and reconciled with a complete
 matching export at a stated scope/cutoff.
 
-Before distribution: test installation and updates in the native App, test
-restart persistence there, and complete the live/export check. Private source
-publication alone does not satisfy those checks. There is no public marketplace listing.
+The macOS release passed marketplace CLI installation and update, followed by
+native Canvas discovery and opening in a new App chat. The installed package
+also passed both real-export browser journeys and runtime actions. The
+Customize install/update controls and a full App restart still need a user-run
+check. Complete the live/export check before relying on the direct connector.
+There is no public marketplace listing.
 Do not replace the original MAUI Canvas until those gates pass.
 
 The current App installation check could not run: the computer-use server
