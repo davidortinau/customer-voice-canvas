@@ -1,0 +1,15 @@
+{
+  "name": "customer-voice-canvas",
+  "owner": { "name": "David Ortinau" },
+  "plugins": [
+    {
+      "name": "customer-voice-canvas",
+      "description": "Customer Voice export analysis Canvas.",
+      "source": {
+        "source": "github",
+        "repo": "davidortinau/customer-voice-canvas",
+        "ref": "stable"
+      }
+    }
+  ]
+}
