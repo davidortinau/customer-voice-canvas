@@ -1,6 +1,8 @@
 {
   "name": "customer-voice-canvas",
-  "owner": { "name": "David Ortinau" },
+  "owner": {
+    "name": "David Ortinau"
+  },
   "plugins": [
     {
       "name": "customer-voice-canvas",
@@ -9,6 +11,42 @@
         "source": "github",
         "repo": "davidortinau/customer-voice-canvas",
         "ref": "stable"
+      }
+    },
+    {
+      "name": "customer-voice-windows-x64",
+      "description": "Customer Voice Canvas for Windows x64.",
+      "source": {
+        "source": "github",
+        "repo": "davidortinau/customer-voice-canvas",
+        "ref": "stable-windows-x64"
+      }
+    },
+    {
+      "name": "customer-voice-windows-arm64",
+      "description": "Customer Voice Canvas for Windows 11 ARM64. Uses an x64 export reader under Windows emulation.",
+      "source": {
+        "source": "github",
+        "repo": "davidortinau/customer-voice-canvas",
+        "ref": "stable-windows-arm64"
+      }
+    },
+    {
+      "name": "customer-voice-linux-x64",
+      "description": "Customer Voice Canvas for Ubuntu and Fedora x64 desktops.",
+      "source": {
+        "source": "github",
+        "repo": "davidortinau/customer-voice-canvas",
+        "ref": "stable-linux-x64"
+      }
+    },
+    {
+      "name": "customer-voice-linux-arm64",
+      "description": "Customer Voice Canvas for Ubuntu and Fedora ARM64 desktops.",
+      "source": {
+        "source": "github",
+        "repo": "davidortinau/customer-voice-canvas",
+        "ref": "stable-linux-arm64"
       }
     }
   ]
