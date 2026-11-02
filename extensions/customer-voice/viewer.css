@@ -26,6 +26,8 @@ h3 { font-size: 15px; line-height: 1.4; font-weight: 600; }
 .eyebrow,.overline { font-size: 10px; letter-spacing: 1.4px; color: var(--muted); }
 .masthead,.actions,.source-strip,.stats,.tabs,footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 .masthead { padding-bottom: 30px; border-bottom: 1px solid var(--line); }
+.brand { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.brand-icon { width: 56px; height: 56px; flex-shrink: 0; }
 .muted,.fine { color: var(--muted); }
 .fine { font-size: 11px; }
 button,input,select,textarea { font: inherit; color: inherit; }

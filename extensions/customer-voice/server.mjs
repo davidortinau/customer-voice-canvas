@@ -14,6 +14,9 @@ const assets = new Map(await Promise.all([
     ["/", ["index.html", "text/html; charset=utf-8"]],
     ["/viewer.mjs", ["viewer.mjs", "text/javascript; charset=utf-8"]],
     ["/viewer.css", ["viewer.css", "text/css; charset=utf-8"]],
+    ["/assets/customer-voice.svg", ["assets/customer-voice.svg", "image/svg+xml"]],
+    ["/assets/customer-voice.png", ["assets/customer-voice.png", "image/png"]],
+    ["/assets/customer-voice-32.png", ["assets/customer-voice-32.png", "image/png"]],
 ].map(async ([route, [file, type]]) => [route, [await readFile(join(here, file)), type]])));
 const dataRoot = () => join(process.env.COPILOT_HOME || join(homedir(), ".copilot"),
     "extensions", "customer-voice-canvas", "artifacts");

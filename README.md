@@ -15,7 +15,7 @@ not a fully validated live connector.
 
 ## Install and open a survey
 
-Version 0.4.1 provides these packages. Marketplace entries are advertised only
+Version 0.4.2 provides these packages. Marketplace entries are advertised only
 after all required GitHub checks pass and the packages are published.
 
 | System | Package name | Built package branch |
@@ -387,11 +387,10 @@ security warnings on any platform.
 
 ### Custom icon
 
-The icon asset is still pending. Recommended design files are an SVG with a
-square `viewBox="0 0 512 512"`, a transparent 512 by 512 PNG, and a 32 by 32
-preview. These are design recommendations, not confirmed host requirements.
-The current Canvas SDK does not expose a custom icon field. An icon can be
-added inside the viewer after the asset is supplied.
+The viewer uses the selected `b-sentiment-ring` design in its header and as its
+browser icon starting with version 0.4.2. The SVG master, 512 by 512 PNG, and 32 by 32 PNG are packaged
+under `extensions/customer-voice/assets/`. The current Canvas SDK does not
+expose a custom icon field for App search or the Canvas tab.
 
 ## Remaining release gates
 
