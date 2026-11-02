@@ -1,7 +1,7 @@
 {
-  "version": "0.4.1",
+  "version": "0.4.2",
   "platform": "linux",
   "arch": "x64",
   "engineArch": "x64",
-  "sourceCommit": "dc62d44436364410ad334a3349bcee56542f77a9"
+  "sourceCommit": "42da02eaa219738e98cf9ce054c045f5beaba58b"
 }
