@@ -13,6 +13,10 @@ test("a running provider keeps matching renderer assets during an on-disk update
         for (const file of ["server.mjs", "dataverse.mjs", "file-picker.mjs", "index.html", "viewer.mjs", "viewer.css"]) {
             await copyFile(new URL(`../extensions/customer-voice/${file}`, import.meta.url), join(root, file));
         }
+        await mkdir(join(root, "assets"));
+        for (const file of ["customer-voice.svg", "customer-voice.png", "customer-voice-32.png"]) {
+            await copyFile(new URL(`../extensions/customer-voice/assets/${file}`, import.meta.url), join(root, "assets", file));
+        }
         const module = await import(pathToFileURL(join(root, "server.mjs")).href);
         viewer = await module.startViewer({}, { storage: join(root, "profiles") });
         const original = await readFile(join(root, "viewer.mjs"), "utf8");

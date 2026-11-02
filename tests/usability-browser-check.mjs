@@ -21,9 +21,20 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_EXE
 const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
 const errors = [];
 page.on("pageerror", error => errors.push(error.message));
-const idle = () => page.waitForFunction(() => document.querySelector("#status").textContent === "");
+const idle = () => page.locator("#status:empty").waitFor({ state: "attached" });
 try {
     await page.goto(viewer.url); await idle();
+    const icon = page.locator(".brand-icon");
+    assert.equal(await icon.evaluate(image => image.complete && image.naturalWidth > 0), true);
+    for (const path of ["/assets/customer-voice.svg", "/assets/customer-voice.png", "/assets/customer-voice-32.png"]) {
+        const response = await page.request.get(new URL(path, viewer.url).href);
+        assert.equal(response.status(), 200);
+        assert.match(response.headers()["content-type"], /^image\//);
+    }
+    for (const colorScheme of ["light", "dark"]) {
+        await page.emulateMedia({ colorScheme });
+        assert.equal(await icon.isVisible(), true);
+    }
     await page.getByRole("button", { name: "Open an export", exact: true }).click();
     await page.getByRole("button", { name: "Browse files", exact: true }).click();
     await idle();
