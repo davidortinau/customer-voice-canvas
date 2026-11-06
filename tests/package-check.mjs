@@ -17,12 +17,14 @@ let viewer;
 try {
     const source = join(root, "survey.csv");
     await writeFile(source, "ID,Recommend this product,Written answer\n" +
-        Array.from({ length: 40 }, (_, i) => `${i},9,Useful for task ${i}`).join("\n"));
+        Array.from({ length: 40 }, (_, i) => `${i},9,Useful for task ${i} \u{1f600} caf\u00e9 \u65e5\u672c\u8a9e`).join("\n"));
     viewer = await startViewer({}, { storage: join(root, "profiles") });
     const proposal = await viewer.operation("inspect", { path: source });
     assert.equal(proposal.source.rows, 40);
     const report = await viewer.operation("confirm", { ticket: proposal.ticket, profile: proposal.profile });
     assert.equal(report.questions.find(q => q.kind === "nps").metric.value, 100);
+    assert.equal((await viewer.operation("answers", { question: "c3" })).answers[0].text,
+        "Useful for task 0 \u{1f600} caf\u00e9 \u65e5\u672c\u8a9e");
     assert.equal((await viewer.operation("refresh")).scope.selected, 40);
     const require = createRequire(join(plugin, "extensions/customer-voice/extension.mjs"));
     assert.ok(require("@azure/msal-node").PublicClientApplication);
@@ -32,6 +34,9 @@ try {
         const workbook = await viewer.operation("inspect", { path: excel });
         assert.ok(workbook.source.rows > 0);
         assert.ok(workbook.source.columns > 1);
+        await viewer.operation("confirm", { ticket: workbook.ticket, profile: workbook.profile });
+        assert.equal((await viewer.operation("answers", { question: "c3" })).answers[0].text,
+            "Useful for task 0 \u{1f600} caf\u00e9 \u65e5\u672c\u8a9e");
     }
     const release = JSON.parse(await readFile(join(plugin, "release.json"), "utf8"));
     assert.equal(release.platform, process.platform);

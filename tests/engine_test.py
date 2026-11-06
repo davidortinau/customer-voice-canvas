@@ -1,11 +1,15 @@
 import csv
+import datetime
 import io
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 from openpyxl import Workbook
 
@@ -14,6 +18,101 @@ import engine
 
 
 class EngineTests(unittest.TestCase):
+    def test_reader_preserves_unicode_with_non_utf8_stdout(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "unicode-\u65e5\u672c.xlsx"
+            for value in ["good", "good \U0001f600", "caf\u00e9 \u65e5\u672c\u8a9e"]:
+                book = Workbook()
+                book.active.append(["ID", "Answer"])
+                book.active.append(["1", value])
+                book.save(source)
+                for encoding in ["ascii", "cp1252"]:
+                    with self.subTest(value=value, encoding=encoding):
+                        result = subprocess.run(
+                            [sys.executable, str(Path(engine.__file__))],
+                            input=json.dumps({"source": str(source), "capture": True}, ensure_ascii=False).encode("utf-8"),
+                            capture_output=True,
+                            env={**os.environ, "PYTHONIOENCODING": encoding, "PYTHONUTF8": "0"},
+                            timeout=30)
+                        self.assertEqual(result.returncode, 0, result.stdout.decode("ascii", errors="replace"))
+                        response = json.loads(result.stdout.decode("ascii"))
+                        self.assertEqual(response["result"]["snapshot"]["rows"][0][1], value)
+
+    def test_input_limits_accept_the_boundary(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "input.csv"
+            text = "ID,Question\n1,ok\n"
+            source.write_text(text)
+            with patch.multiple(engine, MAX_FILE_BYTES=len(text.encode()),
+                                MAX_ROWS=1, MAX_COLUMNS=2, MAX_CELLS=4, MAX_CELL_CHARS=8):
+                headers, rows, _ = engine.load(source)
+                self.assertEqual(headers, ["ID", "Question"])
+                self.assertEqual(rows, [["1", "ok"]])
+            for value in ["", None, 123, []]:
+                with self.subTest(source=value), self.assertRaisesRegex(engine.SurveyError, "Select"):
+                    engine.load(value)
+            source.write_text("ID,Question\n1\n2\n")
+            with patch.object(engine, "MAX_CELLS", 4), self.assertRaisesRegex(engine.SurveyError, "padded"):
+                engine.load(source)
+
+    def test_workbook_values_and_damaged_sheet(self):
+        book = Workbook()
+        book.active.append(["ID", "Number", "Date", "Blank"])
+        book.active.append([1, 1.5, datetime.datetime(2026, 10, 30), None])
+        original = io.BytesIO()
+        book.save(original)
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "input.xlsx"
+            source.write_bytes(original.getvalue())
+            _, rows, _ = engine.load(source)
+            self.assertEqual(rows, [["1", "1.5", "2026-10-30 00:00:00", ""]])
+            damaged = io.BytesIO()
+            with zipfile.ZipFile(original) as archive, zipfile.ZipFile(damaged, "w") as target:
+                for name in archive.namelist():
+                    value = archive.read(name)
+                    if name == "xl/worksheets/sheet1.xml":
+                        value = value.replace(b"</sheetData>", b"</wrong>")
+                    target.writestr(name, value)
+            source.write_bytes(damaged.getvalue())
+            with self.assertRaisesRegex(engine.SurveyError, "damaged"):
+                engine.load(source)
+
+    def test_invalid_exports_have_explicit_errors(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for text, message in [("", "header row"), (",\n1,2\n", "No source columns"),
+                                  ("ID,Question\n", "no response rows"),
+                                  ('ID,Question\n1,"unfinished', "invalid quoting")]:
+                source = root / "input.csv"
+                source.write_text(text)
+                with self.subTest(text=text), self.assertRaisesRegex(engine.SurveyError, message):
+                    engine.load(source)
+            source.write_bytes(b"ID,Question\n1,\xff")
+            with self.assertRaisesRegex(engine.SurveyError, "not UTF-8"):
+                engine.load(source)
+            source = root / "input.xlsx"
+            source.write_bytes(b"not a workbook")
+            with self.assertRaisesRegex(engine.SurveyError, "damaged"):
+                engine.load(source)
+            book = Workbook()
+            book.active.append(["ID", "Question"])
+            book.active.append(["1", "Answer"])
+            book.save(source)
+            for sheet in [-1, 1, "missing", True, []]:
+                with self.subTest(sheet=sheet), self.assertRaisesRegex(engine.SurveyError, "sheet"):
+                    engine.load(source, sheet=sheet)
+            for header in [True, 0, 101, "1"]:
+                with self.subTest(header=header), self.assertRaisesRegex(engine.SurveyError, "Header row"):
+                    engine.load(source, header=header)
+            for limit in ["MAX_FILE_BYTES", "MAX_EXPANDED_BYTES", "MAX_COLUMNS", "MAX_CELLS", "MAX_CELL_CHARS"]:
+                with self.subTest(limit=limit), patch.object(engine, limit, 1):
+                    with self.assertRaisesRegex(engine.SurveyError, "limit"):
+                        engine.load(source)
+            csv_source = root / "input.csv"
+            csv_source.write_text("ID\n1\n2\n")
+            with patch.object(engine, "MAX_ROWS", 1), self.assertRaisesRegex(engine.SurveyError, "row limit"):
+                engine.load(csv_source)
+
     def setUp(self):
         self.headers = ["ID", "Email", "Name", "Recommend the platform",
                         "Comment", "Select all that apply", "Consent",

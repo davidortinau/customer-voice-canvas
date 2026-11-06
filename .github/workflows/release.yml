@@ -56,6 +56,9 @@ jobs:
           CUSTOMER_VOICE_BUILD_PYTHON: python
         run: node scripts/build-release.mjs
       - name: Check package without Python or npm
+        env:
+          PYTHONIOENCODING: cp1252
+          PYTHONUTF8: "0"
         run: |
           python scripts/make-test-export.py "$RUNNER_TEMP/synthetic.xlsx"
           CUSTOMER_VOICE_TEST_XLSX="$RUNNER_TEMP/synthetic.xlsx" node tests/package-check.mjs
@@ -70,6 +73,7 @@ jobs:
           node tests/contact-browser-check.mjs
           node tests/live-browser-check.mjs
           node tests/usability-browser-check.mjs
+          PYTHONIOENCODING=cp1252 PYTHONUTF8=0 node tests/input-browser-check.mjs
       - name: Check Linux portal protocol
         if: startsWith(matrix.target, 'linux-')
         run: dbus-run-session -- python tests/linux-portal-check.py

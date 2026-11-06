@@ -9,14 +9,23 @@ import json
 import math
 import re
 import sys
+import zipfile
 from collections import Counter
 from pathlib import Path
+from xml.etree.ElementTree import ParseError
 
 import pandas as pd
+from openpyxl import load_workbook
 
 
 KINDS = {"system", "private", "metadata", "choice", "multiple", "ordered",
          "nps", "number", "date", "text", "unknown"}
+MAX_FILE_BYTES = 64 * 1024 * 1024
+MAX_EXPANDED_BYTES = 256 * 1024 * 1024
+MAX_ROWS = 500000
+MAX_COLUMNS = 2048
+MAX_CELLS = 2000000
+MAX_CELL_CHARS = 1000000
 EMAIL_ATOM = r"[A-Z0-9!#$%&'*+/=?^_`{|}~-]+"
 EMAIL_LOCAL = rf'(?:{EMAIL_ATOM}(?:\.{EMAIL_ATOM})*|"(?:[^"\\\r\n]|\\[^\r\n])+")'
 EMAIL_DOMAIN = r"[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?"
@@ -43,32 +52,86 @@ class SurveyError(Exception):
 
 
 def load(source, sheet=0, header=1):
+    if not isinstance(source, (str, Path)) or not str(source).strip():
+        raise SurveyError("Select a local CSV or XLSX export.")
     path = Path(source).expanduser().resolve(strict=True)
     if path.suffix.lower() not in {".csv", ".xlsx"}:
         raise SurveyError("Select a CSV or XLSX export.")
-    if not isinstance(header, int) or not 1 <= header <= 100:
+    if type(header) is not int or not 1 <= header <= 100:
         raise SurveyError("Header row must be between 1 and 100.")
-    data = path.read_bytes()
+    if not path.is_file():
+        raise SurveyError("Select a file, not a folder.")
+    if path.stat().st_size > MAX_FILE_BYTES:
+        raise SurveyError("The export exceeds the 64 MiB file limit.")
+    with path.open("rb") as source_file:
+        data = source_file.read(MAX_FILE_BYTES + 1)
+    if len(data) > MAX_FILE_BYTES:
+        raise SurveyError("The export exceeds the 64 MiB file limit.")
     fingerprint = hashlib.sha256(data).hexdigest()
+    def checked_rows(iterator):
+        result, cells = [], 0
+        for row in iterator:
+            if len(result) >= MAX_ROWS + header:
+                raise SurveyError("The export exceeds the 500,000 response-row limit.")
+            if len(row) > MAX_COLUMNS:
+                raise SurveyError("The export exceeds the 2,048 column limit.")
+            cells += len(row)
+            if cells > MAX_CELLS:
+                raise SurveyError("The export exceeds the 2,000,000 cell limit.")
+            if any(len(str(value)) > MAX_CELL_CHARS for value in row):
+                raise SurveyError("A source cell exceeds the 1,000,000 character limit.")
+            result.append(row)
+        return result
     if path.suffix.lower() == ".csv":
-        text = data.decode("utf-8-sig")
+        try:
+            text = data.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            raise SurveyError("The CSV is not UTF-8. Export it as CSV UTF-8 and try again.") from None
         try:
             dialect = csv.Sniffer().sniff(text[:65536], delimiters=",;\t")
         except csv.Error:
             dialect = csv.excel
-        rows = list(csv.reader(io.StringIO(text), dialect))
+        previous_limit = csv.field_size_limit()
+        try:
+            csv.field_size_limit(MAX_CELL_CHARS)
+            rows = checked_rows(csv.reader(io.StringIO(text), dialect, strict=True))
+        except csv.Error:
+            raise SurveyError("The CSV has invalid quoting or a cell exceeds the character limit.") from None
+        finally:
+            csv.field_size_limit(previous_limit)
         sheets = []
     else:
-        book = pd.ExcelFile(io.BytesIO(data), engine="openpyxl")
-        sheets = book.sheet_names
-        frame = pd.read_excel(book, sheet_name=sheet, header=None,
-                              dtype=str, keep_default_na=False)
-        rows = frame.values.tolist()
+        if type(sheet) not in {int, str}:
+            raise SurveyError("Select a sheet by its name or zero-based index.")
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                if sum(item.file_size for item in archive.infolist()) > MAX_EXPANDED_BYTES:
+                    raise SurveyError("The expanded workbook exceeds the 256 MiB limit.")
+            book = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        except (zipfile.BadZipFile, KeyError, ValueError, ParseError):
+            raise SurveyError("The XLSX workbook is damaged or is not a valid Excel export.") from None
+        try:
+            sheets = book.sheetnames
+            if (type(sheet) is int and not 0 <= sheet < len(sheets)) or (
+                    isinstance(sheet, str) and sheet not in sheets):
+                raise SurveyError("The selected sheet does not exist. Select a listed sheet.")
+            selected = book[sheets[sheet] if type(sheet) is int else sheet]
+            # Customer Voice exports can declare A1:A1 despite containing a full sheet.
+            selected.reset_dimensions()
+            rows = checked_rows(
+                ["" if value is None else str(value) for value in row]
+                for row in selected.iter_rows(values_only=True))
+        except (zipfile.BadZipFile, KeyError, ValueError, ParseError):
+            raise SurveyError("The XLSX workbook is damaged or is not a valid Excel export.") from None
+        finally:
+            book.close()
     if len(rows) < header:
         raise SurveyError("The selected header row is outside the export.")
     headers = [str(x).strip() for x in rows[header - 1]]
-    if not headers:
+    if not headers or not any(headers):
         raise SurveyError("No source columns found.")
+    if len(headers) * len(rows) > MAX_CELLS:
+        raise SurveyError("The export exceeds the 2,000,000 cell limit when missing fields are padded.")
     records = []
     for row in rows[header:]:
         if len(row) > len(headers) and any(str(x).strip() for x in row[len(headers):]):
@@ -77,6 +140,8 @@ def load(source, sheet=0, header=1):
         values += [""] * (len(headers) - len(values))
         if any(values):
             records.append(values)
+    if not records:
+        raise SurveyError("The export has no response rows below the selected header.")
     display_name = re.sub(r"^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}-", "", path.name)
     return headers, records, {"name": display_name, "sha256": fingerprint,
                              "rows": len(records), "columns": len(headers),
@@ -479,7 +544,8 @@ def run(request):
 if __name__ == "__main__":
     argparse.ArgumentParser(description=__doc__).parse_args()
     try:
-        print(json.dumps({"result": run(json.load(sys.stdin))}, ensure_ascii=False))
+        # JSON escapes preserve Unicode without depending on the console encoding.
+        print(json.dumps({"result": run(json.load(sys.stdin.buffer))}, ensure_ascii=True))
     except (SurveyError, OSError, ValueError, KeyError, TypeError, UnicodeError) as error:
         # Only known application errors can include a message in an API reply.
         message = str(error) if isinstance(error, SurveyError) else (

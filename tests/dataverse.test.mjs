@@ -45,6 +45,16 @@ test("all pages use the unchanged continuation and GET only", async () => {
     }
 });
 
+test("survey listing uses the Dataverse survey entity-set name", async () => {
+    const client = createDataverse(config, async () => "token", {
+        fetch: async url => {
+            assert.equal(new URL(url).pathname, "/api/data/v9.2/msfp_surveies");
+            return json({ value: [data().survey] });
+        },
+    });
+    assert.deepEqual(await client.surveys(), [{ id: id(3), title: "Synthetic live survey" }]);
+});
+
 test("unsafe continuation is rejected before a credential callback", async () => {
     let tokens = 0, calls = 0;
     for (const continuation of ["https://evil.test/api/data/v9.2/x",
@@ -137,7 +147,7 @@ test("selected-survey read checks metadata and scopes answer joins", async () =>
                 const table = /LogicalName='([^']+)'/.exec(url)[1];
                 return json({ Attributes: fields[table].map(LogicalName => ({ LogicalName })) });
             }
-            if (url.includes(`msfp_surveys(${id(3)})`)) return json(payload.survey);
+            if (url.includes(`msfp_surveies(${id(3)})`)) return json(payload.survey);
             if (url.includes("msfp_questions?")) return json({ value: payload.questions });
             if (url.includes("msfp_surveyresponses?")) return json({ value: payload.responses });
             if (url.includes("msfp_questionresponses?")) {
@@ -152,6 +162,51 @@ test("selected-survey read checks metadata and scopes answer joins", async () =>
     assert.equal(calls.length, 7);
     payload.questions[0]._msfp_survey_value = id(999);
     await assert.rejects(client.snapshot(id(3)), /outside/);
+});
+
+test("Customer Voice quoted choices, multiple selections, and parent scales normalize", () => {
+    const payload = data('"Android","iOS"');
+    Object.assign(payload.questions[0], {
+        msfp_questiontype: 647390000, msfp_choicetype: 647390001,
+        msfp_questionchoices: '"Android","iOS","Choice with, comma","Choice with \\"quotes\\""',
+    });
+    const snapshot = normalize(payload, config);
+    assert.equal(snapshot.rows[0][4], "Android;iOS");
+    assert.equal(snapshot.suggestions[0].kind, "multiple");
+    assert.deepEqual(snapshot.suggestions[0].choices,
+        ["Android", "iOS", "Choice with, comma", 'Choice with "quotes"']);
+    payload.answers[0].msfp_response = "  Android \r\n";
+    assert.equal(normalize(payload, config).rows[0][4], "Android");
+    payload.answers[0].msfp_response = '"Android"';
+    assert.equal(normalize(payload, config).rows[0][4], "Android");
+    payload.answers[0].msfp_response = '"Android","Unlisted answer"';
+    const unlisted = normalize(payload, config);
+    assert.equal(unlisted.rows[0][4], "Android;Unlisted answer");
+    assert.equal(unlisted.suggestions[0].kind, "unknown");
+    assert.deepEqual(unlisted.suggestions[0].choices, []);
+    assert.match(unlisted.suggestions[0].reason, /outside the declared choices/);
+    payload.answers[0].msfp_response = '"Android",broken';
+    assert.throws(() => normalize(payload, config), /unsupported Dataverse/);
+    payload.answers[0].msfp_response = '"Android;other"';
+    assert.throws(() => normalize(payload, config), /unsupported Dataverse/);
+    payload.answers[0].msfp_response = "Satisfied";
+    Object.assign(payload.questions[0], {
+        msfp_questiontext: null, msfp_questiontype: 647390006, msfp_choicetype: 647390002,
+        msfp_questionchoices: null, msfp_sourceparentquestionidentifier: "parent",
+    });
+    payload.questions.push({
+        msfp_questionid: id(9), msfp_sourcequestionidentifier: "parent",
+        msfp_questiontext: "Overall satisfaction", msfp_questiontype: 647390005,
+        msfp_questionchoices: '"Dissatisfied","Neither","Satisfied"',
+    });
+    const scale = normalize(payload, config);
+    assert.equal(scale.headers[4], "Overall satisfaction");
+    assert.equal(scale.suggestions[0].kind, "ordered");
+    assert.equal(scale.suggestions[0].group, "Overall satisfaction");
+    assert.deepEqual(scale.suggestions[0].choices, ["Dissatisfied", "Neither", "Satisfied"]);
+    payload.questions[0].msfp_questionchoices = '["Own choice"]';
+    payload.answers[0].msfp_response = "Own choice";
+    assert.deepEqual(normalize(payload, config).suggestions[0].choices, ["Own choice"]);
 });
 
 test("live snapshot runs through the shared engine; failed refresh preserves data; restart requires sign-in", async () => {
