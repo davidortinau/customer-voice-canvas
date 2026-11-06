@@ -42,7 +42,7 @@ class EngineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             source = Path(folder) / "input.csv"
             text = "ID,Question\n1,ok\n"
-            source.write_text(text)
+            source.write_bytes(text.encode("utf-8"))
             with patch.multiple(engine, MAX_FILE_BYTES=len(text.encode()),
                                 MAX_ROWS=1, MAX_COLUMNS=2, MAX_CELLS=4, MAX_CELL_CHARS=8):
                 headers, rows, _ = engine.load(source)
