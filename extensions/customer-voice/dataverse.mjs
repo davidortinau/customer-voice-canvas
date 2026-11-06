@@ -141,7 +141,7 @@ export function createDataverse(config, token, options = {}) {
     return {
         all,
         async surveys() {
-            return (await all(query("msfp_surveys", "msfp_surveyid,msfp_name", null, "msfp_surveyid")))
+            return (await all(query("msfp_surveies", "msfp_surveyid,msfp_name", null, "msfp_surveyid")))
                 .map(s => ({ id: guid(s.msfp_surveyid), title: s.msfp_name || "Untitled survey" }));
         },
         async snapshot(surveyId) {
@@ -154,7 +154,7 @@ export function createDataverse(config, token, options = {}) {
             await checkSchema("msfp_surveyresponse", responseFields);
             await checkSchema("msfp_questionresponse", ["msfp_questionresponseid", "msfp_questionid",
                 "msfp_surveyresponseid", "msfp_response"]);
-            const survey = await read(`msfp_surveys(${id})?$select=msfp_surveyid,msfp_name`);
+            const survey = await read(`msfp_surveies(${id})?$select=msfp_surveyid,msfp_name`);
             const questions = await all(query("msfp_questions",
                 questionFields.filter(x => x !== "msfp_survey").join(",") + ",_msfp_survey_value",
                 `_msfp_survey_value eq ${id}`, "msfp_order,msfp_questionid"));
@@ -179,6 +179,17 @@ export function createDataverse(config, token, options = {}) {
 
 export function normalize({ survey, questions, responses, answers }, config) {
     const surveyId = guid(survey.msfp_surveyid), origin = environment(config.environment), tenant = guid(config.tenant);
+    const parents = new Map(questions.filter(q => q.msfp_sourcequestionidentifier)
+        .map(q => [q.msfp_sourcequestionidentifier, q]));
+    function choiceList(value) {
+        if (typeof value !== "string" || !value.trim()) return null;
+        try {
+            // Customer Voice also stores quoted JSON string lists without array brackets.
+            const parsed = JSON.parse(value.trim().startsWith("[") ? value : `[${value}]`);
+            return Array.isArray(parsed) && parsed.length && parsed.every(x => typeof x === "string")
+                && new Set(parsed).size === parsed.length ? parsed : null;
+        } catch { return null; }
+    }
     const ids = questions.map(q => guid(q.msfp_questionid)), responseIds = responses.map(r => guid(r.activityid));
     if (new Set(ids).size !== ids.length || new Set(responseIds).size !== responseIds.length) {
         throw new Error("Duplicate question or response IDs prevent a complete live snapshot.");
@@ -199,14 +210,26 @@ export function normalize({ survey, questions, responses, answers }, config) {
         if (typeof answer.msfp_response !== "string" && answer.msfp_response !== null) {
             throw new Error("An answer uses an unsupported Dataverse representation.");
         }
-        rows[r][q] = answer.msfp_response || "";
+        const definition = questions[q - 4];
+        const value = (answer.msfp_response || "").trim();
+        if (definition.msfp_choicetype === 647390001 && value.trim().startsWith('"')) {
+            const selected = choiceList(value);
+            if (!selected || selected.some(x => x.includes(";"))) {
+                throw new Error("A multiple-choice answer uses an unsupported Dataverse representation.");
+            }
+            rows[r][q] = selected.join(";");
+        } else {
+            rows[r][q] = value;
+        }
     }
     if (responses.length && questions.length && !answers.length) {
         throw new Error("No question-response records are available. Customer Voice processing may still be in progress. No empty snapshot was substituted.");
     }
     const columnIds = ["response-id", "start", "completion", "email", ...ids];
     const headers = ["ID", "Start time", "Completion time", "Email",
-        ...questions.map(q => q.msfp_questiontext || `Question ${q.msfp_questionid}`)];
+        ...questions.map(q => q.msfp_questiontext
+            || parents.get(q.msfp_sourceparentquestionidentifier)?.msfp_questiontext
+            || `Question ${q.msfp_questionid}`)];
     const identity = `${tenant}:${origin}:${surveyId}`;
     const source = { name: survey.msfp_name || "Customer Voice survey", kind: "dataverse",
         identity, surveyId, environment: origin, tenant, columnIds,
@@ -218,20 +241,25 @@ export function normalize({ survey, questions, responses, answers }, config) {
     const types = { 647390000: "choice", 647390001: "text", 647390002: "number", 647390003: "date",
         647390004: "unknown", 647390005: "unknown", 647390006: "choice", 647390007: "nps",
         647390008: "private", 647390009: "number", 647390010: "date", 647390011: "choice" };
-    const parents = new Map(questions.map(q => [q.msfp_sourcequestionidentifier, q.msfp_questiontext]));
     const suggestions = questions.map((q, i) => {
         let kind = types[q.msfp_questiontype] || "unknown";
         if (kind === "choice" && q.msfp_choicetype === 647390001) kind = "multiple";
         if (/\b(email|e-mail|phone|address|name)\b/i.test(headers[i + 4])) kind = "private";
-        let choices;
-        try {
-            const parsed = JSON.parse(q.msfp_questionchoices || "null");
-            if (Array.isArray(parsed) && parsed.every(x => typeof x === "string")) choices = parsed;
-        } catch { /* Unknown choice encoding stays review-needed; raw JSON is not interpreted. */ }
+        const parent = parents.get(q.msfp_sourceparentquestionidentifier);
+        let choices = choiceList(q.msfp_questionchoices)
+            || (q.msfp_questiontype === 647390006 ? choiceList(parent?.msfp_questionchoices) : null);
         if (["choice", "multiple"].includes(kind) && !choices) kind = "unknown";
+        if (kind === "choice" && q.msfp_questiontype === 647390006
+            && parent?.msfp_questiontype === 647390005) kind = "ordered";
+        const outsideChoices = ["choice", "ordered", "multiple"].includes(kind) && rows.some(row =>
+            row[i + 4] && (kind === "multiple" ? row[i + 4].split(";") : [row[i + 4]])
+                .some(value => !choices.includes(value)));
+        if (outsideChoices) { kind = "unknown"; choices = null; }
         return { index: i + 4, kind, choices: choices || [],
-            nativeId: ids[i], group: parents.get(q.msfp_sourceparentquestionidentifier) || "",
-            filter: false, reason: choices || !["unknown"].includes(kind)
+            nativeId: ids[i], group: parent?.msfp_questiontext || "",
+            filter: false, reason: outsideChoices
+                ? "Answers include values outside the declared choices, such as Other text. Review privately before charting."
+                : choices || !["unknown"].includes(kind)
                 ? "Dataverse question type. Confirm scoring and private-field handling."
                 : "Dataverse choices, ranking, or parent type needs review. No representation was assumed." };
     });
