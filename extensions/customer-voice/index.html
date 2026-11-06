@@ -59,6 +59,12 @@
     <details class="filters"><summary>Cohort filters</summary>
       <label>Response population<select id="population"><option value="eligible">Configured eligible responses</option><option value="submitted">All submitted responses</option></select></label>
       <div id="filters" class="filter-grid"></div><button id="reset">Reset filters</button></details>
+    <details class="report-settings"><summary>Share presentation settings</summary>
+      <p class="fine">Export chart choices for this report. The file has question identities and chart types only.
+      It has no responses, contacts, file paths, filters, or access tokens. Each person opens their own data and saves a profile first.</p>
+      <div class="actions"><button id="export-settings">Export settings</button><button id="import-settings">Import settings</button></div>
+      <input id="settings-file" type="file" accept=".json,application/json" hidden>
+    </details>
     <nav class="tabs" aria-label="Survey views">
       <button data-tab="overview" aria-current="page">Overview</button>
       <button data-tab="questions">All questions</button>
@@ -71,5 +77,27 @@
   </section>
 </div>
 <div id="chart-tooltip" role="tooltip" hidden></div>
+<dialog id="presentation-dialog">
+  <form id="presentation-form">
+    <h2>Edit question presentation</h2>
+    <p id="presentation-question"></p>
+    <label>Chart type<select id="presentation-chart"></select></label>
+    <p class="fine">Only charts that match this question type are shown. Save the profile first to keep chart settings.</p>
+    <div class="actions"><button id="save-presentation" type="submit" class="primary">Save presentation</button><button id="cancel-presentation" type="button">Cancel</button></div>
+  </form>
+</dialog>
+<dialog id="graphic-dialog">
+  <h2>Export question graphic</h2>
+  <p id="graphic-question"></p>
+  <p class="fine">The graphic has the current chart, counts, scoring method, population, and active filters.
+  Written answers and contacts are not included. Check question labels and choice labels before sharing.</p>
+  <div class="actions"><button id="export-svg">Export SVG</button><button id="export-png">Export PNG</button><button id="cancel-graphic">Cancel</button></div>
+</dialog>
+<dialog id="settings-dialog">
+  <h2>Import presentation settings</h2>
+  <p id="settings-summary"></p>
+  <p class="fine">This replaces the chart choices in the current profile. It does not change data, mappings, scoring, consent, or filters.</p>
+  <div class="actions"><button id="apply-settings" class="primary">Apply settings</button><button id="cancel-settings">Cancel</button></div>
+</dialog>
 </body>
 </html>

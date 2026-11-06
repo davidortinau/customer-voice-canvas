@@ -1,3 +1,4 @@
+import { chartOptions, chartLabel, questionGraphic } from "./presentation.mjs";
 const $ = selector => document.querySelector(selector);
 const escape = value => String(value ?? "").replace(/[&<>"']/g, char =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
@@ -5,6 +6,8 @@ const token = location.hash.slice(1);
 let report, proposal, surveyId, selected, tab = "overview", answers, contacts;
 let answerSearch = "", questionSearch = "", answerPage = 0, filters = {};
 let restorePosition;
+let editingQuestion;
+let graphicQuestion, importedSettings;
 const pageSize = 20;
 
 async function api(name, payload = {}) {
@@ -81,7 +84,7 @@ function renderMapping() {
       Suggested types are not confirmed question definitions.</p>
       <div class="notice">Check each question type. Set scale order and positive choices only when the survey supports them.
       Original pages and branching are not available in a flat export. Section labels come from the saved profile or a bundled suggestion.
-      You can change them below.</div>
+      You can change them below. A change to a question type resets chart choices that no longer match.</div>
       <button id="quick-view" class="primary">View report with defaults</button>
       <label>Survey title<input id="profile-title" value="${escape(profile.title)}"></label>
       <div class="profile-controls">
@@ -137,6 +140,10 @@ function renderMapping() {
             contact: $("#contact-field").value, consent: $("#consent-field").value,
             value: $("#consent-value").value.trim(), addressIsConsent: $("#address-consent").checked,
         } : null;
+        profile.presentations = Object.fromEntries(Object.entries(profile.presentations || {}).filter(([id, setting]) => {
+            const field = fields.find(field => field.id === id);
+            return field && !["private", "system", "metadata"].includes(field.kind) && chartOptions(field).includes(setting.chart);
+        }));
         const result = await api("confirm", { ticket: proposal.ticket, profile });
         const config = await api("config");
         $("#reuse-profile").innerHTML = options([["", "New survey"], ...config.surveys.map(s => [s.id, s.title])], result.surveyId);
@@ -162,15 +169,31 @@ function tip(label, count, percent, denominator, extraClass = "") {
     return `class="chart-segment ${extraClass}" tabindex="0" data-tooltip="${escape(text)}" aria-label="${escape(text)}" aria-describedby="chart-tooltip"`;
 }
 
-function metricCard(q) {
+function metricCard(q, tools = false) {
     const m = q.metric;
     return `<article class="metric"><p class="fine">${escape(q.label)}</p>
       <div class="metric-value">${m.value === null ? "Suppressed" : escape(m.value) + (m.label === "NPS" ? "" : "%")}</div>
       <h3>${escape(m.label)}</h3><p class="fine">${escape(m.status)} / n=${m.denominator}
-      / numerator ${m.numerator}</p><p class="fine">${escape(m.method)}</p></article>`;
+      / numerator ${m.numerator}</p><p class="fine">${escape(m.method)}</p>${tools ? questionTools(q) : ""}</article>`;
 }
 
 function bars(q) {
+    const chart = report.presentations?.[q.id]?.chart || "default";
+    if (chart === "default") return originalBars(q);
+    if (chart === "table") return `<div class="table-wrap"><table><caption>${escape(q.label)}</caption>
+      <thead><tr><th>Choice</th><th>Count</th><th>Percent</th></tr></thead><tbody>
+      ${(q.distribution || []).map(item => `<tr><td>${escape(item.label)}</td><td>${item.count}</td><td>${item.percent}%</td></tr>`).join("")}
+      </tbody></table></div><p class="fine">Denominator: ${q.valid} valid nonblank answers.
+      ${q.multiSelect ? "Multiple selections. Percentages can sum above 100%." : ""} ${escape(q.units || "")}</p>`;
+    return `<div class="graphic-scroll">${questionGraphic(q, chart)}</div>`;
+}
+
+function questionTools(q) {
+    return `<div class="actions question-tools"><button data-edit-question="${q.id}">Edit</button>
+      <button data-export-question="${q.id}">Export graphic</button></div>`;
+}
+
+function originalBars(q) {
     if (q.kind === "nps") {
         const max = Math.max(1, ...q.distribution.map(x => x.count));
         const colors = ["var(--bad)", "var(--muted)", "var(--good)"];
@@ -221,9 +244,10 @@ function renderSection(group) {
     return `<p class="overline">SURVEY SECTION</p><h2>${escape(group)}</h2>
       <p class="fine">${questions.length} questions. Sections use profile group labels, not recovered survey pages.</p>
       ${matrix(group, questions)}
-      <div class="grid">${questions.map(q => `<article class="panel"><h3>${escape(q.label)}</h3>
+      <div class="grid">${questions.map(q => `<article class="panel"><h3>${escape(q.label)}</h3>${questionTools(q)}
         ${q.metric ? metricCard(q) : ""}
-        ${q.kind === "text" ? `<p class="fine">${q.answered} written answers</p><button data-read-question="${q.id}">Read all answers</button>` : bars(q)}</article>`).join("")}</div>`;
+        ${q.kind === "text" && report.presentations?.[q.id]?.chart !== "summary"
+            ? `<p class="fine">${q.answered} written answers</p><button data-read-question="${q.id}">Read all answers</button>` : bars(q)}</article>`).join("")}</div>`;
 }
 
 function renderOverview() {
@@ -236,10 +260,10 @@ function renderOverview() {
       <div class="metrics"><article class="metric"><p class="fine">Question coverage</p>
       <div class="metric-value">${questions.length}</div><h3>Survey questions</h3>
       <p class="fine">${report.questions.length} source columns accounted for. ${questions.filter(q => q.kind === "text").length} written-answer fields.</p></article>
-      ${metrics.map(metricCard).join("")}</div>
+      ${metrics.map(q => metricCard(q, true)).join("")}</div>
       ${groups.map(group => matrix(group, questions.filter(q => q.group === group))).join("")}
       <div class="grid">${questions.filter(q => q.distribution).slice(0, 8).map(q => `
-      <article class="panel"><h3>${escape(q.label)}</h3>${bars(q)}</article>`).join("")}</div>
+      <article class="panel"><h3>${escape(q.label)}</h3>${questionTools(q)}${bars(q)}</article>`).join("")}</div>
       ${renderSourceGroups()}<p class="notice">Every question is available in All questions. This overview shows the first eight charted questions.
       No overall satisfaction score is inferred.</p>`;
 }
@@ -279,15 +303,16 @@ async function renderDetail() {
     $("#question-detail").innerHTML = `
       <p class="overline">${q.id} / ${escape(q.kind)}${q.group ? " / " + escape(q.group) : ""}</p>
       <h2>${escape(q.label)}</h2>
+      ${questionTools(q)}
       <details><summary>Original source wording</summary><p class="fine">${escape(q.header)}</p></details>
       <div class="stats"><div><strong>${q.answered}</strong>Answered</div><div><strong>${q.blank}</strong>Blank</div>
       <div><strong>${q.valid}</strong>Valid nonblank</div><div><strong>${q.excluded}</strong>Excluded</div></div>
       ${q.metric ? metricCard(q) : ""}
-      ${q.kind === "text" ? `<div class="notice">${escape(report.warning)}</div>
+      ${q.kind === "text" && report.presentations?.[q.id]?.chart !== "summary" ? `<div class="notice">${escape(report.warning)}</div>
         <div class="answer-tools"><label>Search all written answers<input id="answer-search" value="${escape(answerSearch)}"></label>
         <span class="fine" id="answer-count"></span></div><div id="answer-list"></div><div id="answer-pagination" class="pagination"></div>`
         : bars(q)}`;
-    if (q.kind === "text") {
+    if (q.kind === "text" && report.presentations?.[q.id]?.chart !== "summary") {
         if (!answers || answers.question !== q.id) answers = await api("answers", {
             question: q.id, sha256: report.source.sha256,
         });
@@ -518,6 +543,113 @@ function renderLibrary(surveys, warnings = []) {
         button.onclick = () => work("Opening saved survey...", () => openSaved(button.dataset.survey));
     });
 }
+
+document.addEventListener("click", event => {
+    const exportButton = event.target.closest("[data-export-question]");
+    if (exportButton) {
+        graphicQuestion = report.questions.find(q => q.id === exportButton.dataset.exportQuestion);
+        $("#graphic-question").textContent = graphicQuestion.label;
+        $("#graphic-dialog").showModal();
+        return;
+    }
+    const button = event.target.closest("[data-edit-question]");
+    if (!button) return;
+    editingQuestion = report.questions.find(q => q.id === button.dataset.editQuestion);
+    $("#presentation-question").textContent = editingQuestion.label;
+    $("#presentation-chart").innerHTML = options(chartOptions(editingQuestion).map(chart => [chart, chartLabel(chart)]),
+        report.presentations?.[editingQuestion.id]?.chart || "default");
+    $("#save-presentation").disabled = Boolean(report.preview);
+    $("#save-presentation").dataset.disabled = String(Boolean(report.preview));
+    $("#presentation-dialog").showModal();
+});
+$("#cancel-presentation").onclick = () => $("#presentation-dialog").close();
+$("#presentation-form").onsubmit = event => {
+    event.preventDefault();
+    work("Saving question presentation...", async () => {
+        const chart = $("#presentation-chart").value;
+        $("#presentation-dialog").close();
+        const next = await api("presentation", { surveyId,
+            presentations: { ...report.presentations, [editingQuestion.id]: { chart } } });
+        await acceptReport(next);
+    });
+};
+
+function download(blob, filename) {
+    const url = URL.createObjectURL(blob), link = document.createElement("a");
+    link.href = url; link.download = filename;
+    document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+function graphicContext() {
+    const scope = report.scope;
+    const cohort = Object.entries(scope.filters).map(([id, value]) => {
+        const field = report.filterOptions.find(field => field.id === id);
+        return `${field?.label || id}: ${value}`;
+    }).join("; ") || "None";
+    return `${report.title}. ${scope.population} ${scope.selected} selected responses. Filters: ${cohort}.`;
+}
+
+async function exportGraphic(format) {
+    const svg = questionGraphic(graphicQuestion, report.presentations?.[graphicQuestion.id]?.chart || "default", graphicContext());
+    const xml = new DOMParser().parseFromString(svg, "image/svg+xml");
+    if (xml.querySelector("parsererror")) throw new Error("A question label contains text that SVG cannot use. Check the labels before export.");
+    let blob = new Blob([svg], { type: "image/svg+xml" });
+    if (format === "png") {
+        const scale = 2, width = Number(xml.documentElement.getAttribute("width")) * scale;
+        const height = Number(xml.documentElement.getAttribute("height")) * scale;
+        if (height > 16000 || width * height > 32000000) throw new Error("This question is too large for PNG. Export SVG instead.");
+        const image = new Image();
+        image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+        await image.decode();
+        const canvas = document.createElement("canvas");
+        canvas.width = width; canvas.height = height;
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("This browser cannot create a PNG graphic. Export SVG instead.");
+        context.drawImage(image, 0, 0, width, height);
+        blob = await new Promise((accept, reject) => canvas.toBlob(value => value ? accept(value)
+            : reject(new Error("Cannot create the PNG graphic. Export SVG instead.")), "image/png"));
+    }
+    download(blob, `question-${graphicQuestion.id}.${format}`);
+}
+
+$("#cancel-graphic").onclick = () => $("#graphic-dialog").close();
+for (const format of ["svg", "png"]) $(`#export-${format}`).onclick = () => {
+    $("#graphic-dialog").close();
+    work("Creating question graphic...", () => exportGraphic(format));
+};
+$("#export-settings").onclick = () => work("Exporting presentation settings...", async () => {
+    const settings = await api("settings", { surveyId, action: "export" });
+    download(new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" }), "report-presentation.json");
+});
+$("#import-settings").onclick = () => $("#settings-file").click();
+$("#settings-file").onchange = event => {
+    const file = event.target.files[0];
+    event.target.value = "";
+    if (!file) return;
+    work("Checking presentation settings...", async () => {
+        if (file.size > 2 * 1024 * 1024) throw new Error("The settings file is too large. The limit is 2 MiB.");
+        let settings;
+        try { settings = JSON.parse(await file.text()); }
+        catch (error) {
+            if (error instanceof SyntaxError) throw new Error("The settings file is not valid JSON.");
+            throw error;
+        }
+        const checked = await api("settings", { surveyId, action: "check", settings });
+        importedSettings = { surveyId, settings };
+        $("#settings-summary").textContent = `${Object.keys(checked.presentations).length} question settings match this report.`;
+        $("#settings-dialog").showModal();
+    });
+};
+$("#cancel-settings").onclick = () => { importedSettings = null; $("#settings-dialog").close(); };
+$("#apply-settings").onclick = () => {
+    $("#settings-dialog").close();
+    work("Saving imported presentation settings...", async () => {
+        const next = await api("settings", { ...importedSettings, action: "apply" });
+        importedSettings = null;
+        await acceptReport(next);
+    });
+};
 
 await work("Loading survey library...", async () => {
     const config = await api("config");

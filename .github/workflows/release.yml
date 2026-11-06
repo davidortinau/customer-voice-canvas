@@ -49,7 +49,7 @@ jobs:
           CUSTOMER_VOICE_PYTHON: ${{ steps.python.outputs.python-path }}
         run: |
           python -m unittest discover -s tests -p '*_test.py'
-          node --test tests/server.test.mjs tests/dataverse.test.mjs
+          node --test tests/server.test.mjs tests/dataverse.test.mjs tests/presentation.test.mjs
           for file in extensions/customer-voice/*.mjs scripts/*.mjs tests/*.mjs; do node --check "$file"; done
       - name: Build self-contained plugin
         env:
@@ -73,6 +73,7 @@ jobs:
           node tests/contact-browser-check.mjs
           node tests/live-browser-check.mjs
           node tests/usability-browser-check.mjs
+          node tests/presentation-browser-check.mjs
           PYTHONIOENCODING=cp1252 PYTHONUTF8=0 node tests/input-browser-check.mjs
       - name: Check Linux portal protocol
         if: startsWith(matrix.target, 'linux-')

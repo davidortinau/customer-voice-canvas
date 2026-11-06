@@ -202,6 +202,48 @@ label, percentage, count, and valid-answer denominator. This includes ordered
 satisfaction bars, grouped scales, NPS segments, and individual chart bars.
 Press Escape to dismiss the tooltip.
 
+### Edit, export, and share question charts
+
+Select **Edit** on a question in Overview, a section, or All questions.
+Choose a presentation, then select **Save presentation**. Use **Review profile**
+to save a profile first if you opened a quick view. Existing charts remain the
+default until you choose a different presentation.
+
+Choice, ordered-scale, and NPS questions support horizontal bars, columns,
+dot plots, a data table, a 100% stacked bar, pie charts, and donut charts.
+Multiple-choice, number, and date distributions support bars, columns, dots,
+and tables. Pie and 100% stacked charts are not offered for multiple selections
+or numerical and date distributions. No trend, correlation, or extra data
+dimension is inferred. Written-answer questions support the answer reader or
+a counts-only summary. Unknown fields support a summary until mapped.
+
+Chart choices are stored in the saved profile by question ID. They do not
+depend on response counts, file names, timestamps, or source hashes. They stay
+in use after **Refresh data**, after reopening the viewer, and when the same
+profile is used with a new file path. A change to the column structure requires
+profile review. A change to a question type resets chart choices that no longer
+match.
+
+Select **Export graphic** on any question, then choose **Export SVG** or
+**Export PNG**. SVG is scalable. PNG is 2,000 pixels wide. The graphic uses the
+current presentation and includes the question label, counts, denominator,
+scoring method when available, population, and active filters. It does not
+include written answers or contacts. Check question labels and choice labels
+before sharing. Large questions that exceed the PNG size limit must use SVG.
+Wide chart graphics scroll within their panel on small screens.
+
+Open **Share presentation settings** to export a JSON file. Each recipient
+opens their own report data, saves a profile, and selects **Import settings**.
+The viewer checks question identities, original headers, and question types
+before offering **Apply settings**. Live reports also require matching source
+question IDs. A mismatched or invalid file does not change the profile.
+The settings can be used with new response data and a different local file path.
+
+Shared settings contain chart choices and question identities only. They do
+not contain response rows, contacts, local paths, access tokens, private keys,
+filters, or search terms. They do not replace mappings, scoring, consent,
+section groups, or reading positions. Those remain in each local profile.
+
 The bundled MAUI profile retains the completion-date gate, recent-use
 eligibility, seven-level Top-3-Box satisfaction method, source metadata, and
 explicitly opt-in follow-up prompt. The earlier 921-row acceptance export had
@@ -309,7 +351,7 @@ calling the direct connection ready for distribution.
 
 ```bash
 python3 -m unittest discover -s tests -p '*_test.py'
-node --test tests/server.test.mjs tests/dataverse.test.mjs
+node --test tests/server.test.mjs tests/dataverse.test.mjs tests/presentation.test.mjs
 ```
 
 For the real .NET Developer Survey acceptance input, use an existing Playwright
@@ -344,6 +386,7 @@ CHROMIUM_EXECUTABLE=/full/path/chromium
 
 node tests/live-browser-check.mjs
 node tests/usability-browser-check.mjs
+node tests/presentation-browser-check.mjs
 ```
 
 This checks the approval control, survey selection, shared profile/charts,
@@ -354,6 +397,10 @@ unsupported-format warning checks.
 The usability check exercises file selection and cancellation with a test picker,
 quick view, later profile editing, section tabs, and hover/keyboard tooltips
 with synthetic data.
+The presentation check edits charts, refreshes response data, reopens a saved
+profile, checks SVG and PNG contents, and imports shared settings into a second
+profile with different response data. Set `CUSTOMER_VOICE_EVIDENCE` to a scratch
+folder to save screenshots, a question graphic, and an example settings file.
 The macOS release includes a compiled AppKit file picker. Windows uses a
 Windows Forms file dialog. Linux includes a desktop-portal client. No custom
 folder menu is used. Linux protocol checks use a private D-Bus session and a

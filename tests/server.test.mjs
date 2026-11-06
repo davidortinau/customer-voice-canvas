@@ -10,7 +10,7 @@ test("a running provider keeps matching renderer assets during an on-disk update
     const root = await mkdtemp(join(tmpdir(), "cv-assets-update-"));
     let viewer, second;
     try {
-        for (const file of ["server.mjs", "dataverse.mjs", "file-picker.mjs", "index.html", "viewer.mjs", "viewer.css"]) {
+        for (const file of ["server.mjs", "presentation.mjs", "dataverse.mjs", "file-picker.mjs", "index.html", "viewer.mjs", "viewer.css"]) {
             await copyFile(new URL(`../extensions/customer-voice/${file}`, import.meta.url), join(root, file));
         }
         await mkdir(join(root, "assets"));
@@ -172,7 +172,8 @@ test("the Python reader supports cancellation before and during a read", async (
 test("renderer has no background refresh or source watcher", async () => {
     const renderer = await readFile(new URL("../extensions/customer-voice/viewer.mjs", import.meta.url), "utf8");
     const server = await readFile(new URL("../extensions/customer-voice/server.mjs", import.meta.url), "utf8");
-    assert.doesNotMatch(renderer, /setInterval|setTimeout|EventSource|WebSocket/);
+    const withoutDownloadCleanup = renderer.replace("setTimeout(() => URL.revokeObjectURL(url), 60000);", "");
+    assert.doesNotMatch(withoutDownloadCleanup, /setInterval|setTimeout|EventSource|WebSocket/);
     assert.doesNotMatch(server, /watchFile|fs\.watch|setInterval/);
 });
 
