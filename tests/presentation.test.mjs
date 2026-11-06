@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chartOptions, validatePresentations, exportSettings, importSettings, questionGraphic } from "../extensions/customer-voice/presentation.mjs";
 import { startViewer } from "../extensions/customer-voice/server.mjs";
+import { validateAppearance } from "../extensions/customer-voice/themes.mjs";
 
 test("chart choices match the dimensions and preserve counts", () => {
     for (const kind of ["multiple", "number", "date"]) {
@@ -45,9 +46,12 @@ test("portable settings contain configuration only and require stable matching i
     source: "/private/report.csv", key: "secret", filters: { c1: "private filter" },
     rows: [["private answer", "private@example.test"]] };
     const settings = exportSettings(profile);
-    assert.deepEqual(settings, { format: "customer-voice-presentation", version: 1,
+    assert.deepEqual(settings, { format: "customer-voice-presentation", version: 2,
+        appearance: validateAppearance(),
         questions: [{ id: "c1", header: "Question", kind: "choice", chart: "donut" }] });
     assert.deepEqual(importSettings(profile, settings), profile.presentations);
+    const { appearance, ...legacy } = settings;
+    assert.deepEqual(importSettings(profile, { ...legacy, version: 1 }), profile.presentations);
     assert.throws(() => importSettings(profile, { ...settings, rows: profile.rows }), /settings file/);
     assert.throws(() => importSettings(profile, { ...settings, questions: [] }), /structure/);
     assert.throws(() => importSettings(profile, { ...settings, questions: [{ ...settings.questions[0], header: "Different" }] }), /identities/);

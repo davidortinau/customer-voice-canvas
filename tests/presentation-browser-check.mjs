@@ -101,7 +101,7 @@ try {
     const settingsPath = join(root, "presentation.json");
     await downloadedSettings.saveAs(settingsPath); await idle();
     const settings = JSON.parse(await readFile(settingsPath, "utf8"));
-    assert.deepEqual(Object.keys(settings).sort(), ["format", "questions", "version"]);
+    assert.deepEqual(Object.keys(settings).sort(), ["appearance", "format", "questions", "version"]);
     assert.doesNotMatch(JSON.stringify(settings), /Private response|report.csv|sha256|rows|key|token/);
     await page.getByRole("button", { name: "All questions", exact: true }).click(); await idle();
     await page.locator('[data-question="c3"]').click(); await idle();

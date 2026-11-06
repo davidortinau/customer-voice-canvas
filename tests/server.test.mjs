@@ -10,7 +10,7 @@ test("a running provider keeps matching renderer assets during an on-disk update
     const root = await mkdtemp(join(tmpdir(), "cv-assets-update-"));
     let viewer, second;
     try {
-        for (const file of ["server.mjs", "presentation.mjs", "dataverse.mjs", "file-picker.mjs", "index.html", "viewer.mjs", "viewer.css"]) {
+        for (const file of ["server.mjs", "presentation.mjs", "themes.mjs", "dataverse.mjs", "file-picker.mjs", "index.html", "viewer.mjs", "viewer.css"]) {
             await copyFile(new URL(`../extensions/customer-voice/${file}`, import.meta.url), join(root, file));
         }
         await mkdir(join(root, "assets"));

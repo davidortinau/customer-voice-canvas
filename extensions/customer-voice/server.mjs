@@ -9,12 +9,14 @@ import { existsSync } from "node:fs";
 import { createDataverse, environment, guid, signIn } from "./dataverse.mjs";
 import { pickExport } from "./file-picker.mjs";
 import { validatePresentations, exportSettings, importSettings } from "./presentation.mjs";
+import { validateAppearance } from "./themes.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const assets = new Map(await Promise.all([
     ["/", ["index.html", "text/html; charset=utf-8"]],
     ["/viewer.mjs", ["viewer.mjs", "text/javascript; charset=utf-8"]],
     ["/presentation.mjs", ["presentation.mjs", "text/javascript; charset=utf-8"]],
+    ["/themes.mjs", ["themes.mjs", "text/javascript; charset=utf-8"]],
     ["/viewer.css", ["viewer.css", "text/css; charset=utf-8"]],
     ["/assets/customer-voice.svg", ["assets/customer-voice.svg", "image/svg+xml"]],
     ["/assets/customer-voice.png", ["assets/customer-voice.png", "image/png"]],
@@ -227,15 +229,18 @@ export async function startViewer(input = {}, options = {}) {
                 connection = candidate;
                 return { surveys, config: candidate.config };
             }
-            if (name === "presentation") {
+            if (name === "presentation" || name === "appearance") {
                 if (!current || current.record.preview) throw new Error("Review and save the profile before saving chart settings.");
                 if (request.surveyId !== current.record.profile.id) throw new Error("This report changed. Open its current chart settings.");
-                const profile = { ...current.record.profile,
-                    presentations: validatePresentations(current.record.profile, request.presentations) };
+                if (name === "appearance" && request.appearance === undefined) throw new Error("Select viewer and chart theme settings.");
+                const profile = { ...current.record.profile, ...(name === "presentation"
+                    ? { presentations: validatePresentations(current.record.profile, request.presentations) }
+                    : { appearance: validateAppearance(request.appearance, { editing: true }) }) };
                 const record = { ...current.record, profile };
                 await writeRecord(root, record);
                 current.record = record;
                 current.report.presentations = profile.presentations;
+                current.report.appearance = validateAppearance(profile.appearance);
                 return current.report;
             }
             if (name === "settings") {
@@ -243,13 +248,16 @@ export async function startViewer(input = {}, options = {}) {
                 if (request.surveyId !== current.record.profile.id) throw new Error("This report changed. Open its current settings.");
                 if (request.action === "export") return exportSettings(current.record.profile);
                 const presentations = importSettings(current.record.profile, request.settings);
-                if (request.action === "check") return { presentations };
+                const appearance = validateAppearance(request.settings.version === 2
+                    ? request.settings.appearance : current.record.profile.appearance);
+                if (request.action === "check") return { presentations, appearance };
                 if (request.action !== "apply") throw new Error("Select a settings import or export action.");
-                const profile = { ...current.record.profile, presentations };
+                const profile = { ...current.record.profile, presentations, appearance };
                 const record = { ...current.record, profile };
                 await writeRecord(root, record);
                 current.record = record;
                 current.report.presentations = presentations;
+                current.report.appearance = appearance;
                 return current.report;
             }
             if (name === "inspect" || name === "review") {
@@ -284,6 +292,7 @@ export async function startViewer(input = {}, options = {}) {
                 const profile = { ...(preview ? compatible ? proposal.saved.profile : proposal.profile : request.profile),
                     id: proposal.saved?.profile.id || randomUUID(), version: 1 };
                 profile.presentations = validatePresentations(profile, profile.presentations || {});
+                profile.appearance = validateAppearance(profile.appearance);
                 const record = { profile, source: proposal.source,
                     key: proposal.saved?.key || randomBytes(32).toString("hex"), preview };
                 const report = await analyze({ snapshot: proposal.snapshot, profile, mode: "report",
@@ -294,6 +303,7 @@ export async function startViewer(input = {}, options = {}) {
                 signal.throwIfAborted();
                 report.preview = preview;
                 report.presentations = profile.presentations;
+                report.appearance = profile.appearance;
                 if (preview) report.contactEnabled = false;
                 current = { record, report, snapshot: proposal.snapshot };
                 tickets.delete(request.ticket);
@@ -310,6 +320,7 @@ export async function startViewer(input = {}, options = {}) {
                 signal.throwIfAborted();
                 report.preview = Boolean(record.preview);
                 report.presentations = validatePresentations(record.profile, record.profile.presentations || {});
+                report.appearance = validateAppearance(record.profile.appearance);
                 if (record.preview) report.contactEnabled = false;
                 current = { record, report, snapshot: captured };
                 if (name === "open") report.view = record.view;

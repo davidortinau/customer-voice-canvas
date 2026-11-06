@@ -55,12 +55,12 @@
     <p id="preview-notice" class="notice" hidden>Quick view uses suggested settings. No profile is saved. Use Review profile to change or save settings. Private contacts stay locked until you confirm consent.</p>
     <div class="source-strip"><div><span class="overline">LOADED SNAPSHOT</span><strong id="source-name"></strong>
       <code id="fingerprint"></code></div><div><span id="counts"></span><p class="fine" id="loaded-time"></p></div>
-      <div class="actions"><button id="review-profile">Review profile</button><button id="refresh" class="primary">Refresh data</button></div></div>
+      <div class="actions"><button id="open-appearance">Appearance</button><button id="review-profile">Review profile</button><button id="refresh" class="primary">Refresh data</button></div></div>
     <details class="filters"><summary>Cohort filters</summary>
       <label>Response population<select id="population"><option value="eligible">Configured eligible responses</option><option value="submitted">All submitted responses</option></select></label>
       <div id="filters" class="filter-grid"></div><button id="reset">Reset filters</button></details>
     <details class="report-settings"><summary>Share presentation settings</summary>
-      <p class="fine">Export chart choices for this report. The file has question identities and chart types only.
+      <p class="fine">Export chart choices, viewer colors, and chart palettes for this report. Custom themes are included.
       It has no responses, contacts, file paths, filters, or access tokens. Each person opens their own data and saves a profile first.</p>
       <div class="actions"><button id="export-settings">Export settings</button><button id="import-settings">Import settings</button></div>
       <input id="settings-file" type="file" accept=".json,application/json" hidden>
@@ -86,18 +86,45 @@
     <div class="actions"><button id="save-presentation" type="submit" class="primary">Save presentation</button><button id="cancel-presentation" type="button">Cancel</button></div>
   </form>
 </dialog>
-<dialog id="graphic-dialog">
-  <h2>Export question graphic</h2>
+<dialog id="graphic-dialog" aria-labelledby="graphic-title">
+  <h2 id="graphic-title">Export question graphic</h2>
   <p id="graphic-question"></p>
   <p class="fine">The graphic has the current chart, counts, scoring method, population, and active filters.
   Written answers and contacts are not included. Check question labels and choice labels before sharing.</p>
   <div class="actions"><button id="export-svg">Export SVG</button><button id="export-png">Export PNG</button><button id="cancel-graphic">Cancel</button></div>
 </dialog>
-<dialog id="settings-dialog">
-  <h2>Import presentation settings</h2>
+<dialog id="settings-dialog" aria-labelledby="settings-title">
+  <h2 id="settings-title">Import presentation settings</h2>
   <p id="settings-summary"></p>
-  <p class="fine">This replaces the chart choices in the current profile. It does not change data, mappings, scoring, consent, or filters.</p>
+  <p class="fine">This replaces chart choices and, for version 2 files, viewer and chart themes. Version 1 files keep current colors.
+  It does not change data, mappings, scoring, consent, or filters.</p>
   <div class="actions"><button id="apply-settings" class="primary">Apply settings</button><button id="cancel-settings">Cancel</button></div>
+</dialog>
+<dialog id="appearance-dialog" aria-labelledby="appearance-title">
+  <form id="appearance-form">
+    <h2 id="appearance-title">Make this report your own</h2>
+    <p class="muted">Choose the viewer and chart colors separately. Both are saved with this report and included when you share settings.</p>
+    <p id="color-help" class="fine">Use a color picker or enter a six-digit hex value, such as #285abb. Charts use patterns, numbers, and data tables as well as color.</p>
+    <div class="theme-columns">
+      <fieldset><legend>Viewer theme</legend><div id="viewer-themes" class="theme-options"></div>
+        <details class="custom-theme"><summary>Create a custom viewer theme</summary>
+          <label>Theme name<input id="custom-viewer-name" maxlength="60"></label><div id="viewer-color-inputs" class="color-inputs"></div>
+          <p class="fine">Text needs 4.5:1 contrast on report surfaces. Controls use text-colored boundaries; dividers are decorative.</p>
+        </details>
+      </fieldset>
+      <fieldset><legend>Chart palette</legend><div id="chart-themes" class="theme-options"></div>
+        <details class="custom-theme"><summary>Create a custom chart palette</summary>
+          <label>Palette name<input id="custom-chart-name" maxlength="60"></label><div id="chart-color-inputs" class="color-inputs"></div>
+          <p class="fine">Chart colors need 3:1 contrast against white exports. Set NPS group colors separately. Outlines keep marks visible on light and dark viewers.</p>
+        </details>
+      </fieldset>
+    </div>
+    <div id="theme-preview" class="theme-preview" aria-label="Theme preview"></div>
+    <p id="appearance-error" role="alert" tabindex="-1" hidden></p>
+    <button id="repair-colors" type="button" hidden>Use readable custom colors</button>
+    <p id="appearance-preview-notice" class="fine" hidden>Use Review profile to save a profile before saving theme settings.</p>
+    <div class="actions"><button id="save-appearance" class="primary" type="submit">Save appearance</button><button id="cancel-appearance" type="button">Cancel</button></div>
+  </form>
 </dialog>
 </body>
 </html>
