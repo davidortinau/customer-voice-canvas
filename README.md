@@ -142,6 +142,31 @@ for the requested text-question ID, not only the visible page.
 5. To use a new filename, select **Open export**, choose the saved survey
    profile, and confirm the explicit source change.
 
+### Input checks and recovery
+
+CSV files must use UTF-8 encoding and valid quoting. XLSX files must be valid
+Excel workbooks. Select an existing sheet and a header row from 1 to 100.
+The header must contain at least one column name, and at least one response
+must follow it. Duplicate question names and individual blank column names
+are allowed.
+
+Imports have these limits: 64 MiB per file, 256 MiB of expanded workbook
+content, 500,000 response rows, 2,048 columns, 2,000,000 source cells, and
+1,000,000 characters per cell. Cell and row checks include blank source
+cells and rows, plus missing fields padded to the header width. The reader
+uses actual worksheet content because some Customer Voice exports have
+incorrect declared worksheet dimensions.
+
+An invalid import shows an error and does not replace the last loaded
+report. Select a valid export to try again. A changed column structure
+does not make a workbook invalid. If a saved profile no longer matches,
+quick view uses a new proposal instead of the old mappings.
+
+Emoji and non-English text are supported. Reader requests use UTF-8, and
+reader replies use ASCII-safe JSON escapes. The viewer restores the original
+characters. This avoids `UnicodeEncodeError` on systems with a non-UTF-8
+console encoding; it does not remove or replace response text.
+
 Profiles are stored under
 `$COPILOT_HOME/extensions/customer-voice-canvas/artifacts/`, with `~/.copilot`
 as the default home. They are outside the installed plugin and source checkout.
@@ -215,10 +240,33 @@ before sending credentials, and uses bounded retries for throttling. Native
 survey/question IDs are qualified by tenant and environment. Changed
 definitions or identities require profile review. Only documented supported
 choice representations are suggested; other representations remain unknown.
+Customer Voice quoted choice lists, including lists without JSON array
+brackets, are supported. Likert rows inherit their parent question's scale.
+Multiple selections use the same semicolon-separated form as exports, and
+surrounding answer whitespace is removed to match the export reader. Answers
+outside the declared choices, such as written **Other** answers, remain
+review-needed. They are not added to public chart labels automatically.
 
 Reads are not a database transaction, and Customer Voice processing can lag.
 Do not treat synthetic connector checks as evidence of live/export parity.
 Other Microsoft clouds and cross-platform authentication have not been tested.
+
+### Live-data proof and remaining sign-in limit
+
+A read-only proof against an authorized MAUI survey matched all 945 records
+in the saved export by Customer Voice source response ID. All 31 survey
+answer columns matched after the shared export normalization, including the
+optional follow-up field. Scored metrics and submitted/eligible populations
+also matched at that same response scope. The live read had 948 records;
+the three additional records were not included in the export comparison.
+
+The browser proof exercised real survey selection, report generation,
+explicit refresh, and retention of the last report after a real HTTP 401.
+It used an existing corporate Azure CLI session through a test-only sign-in
+adapter. No token or response rows were saved. This does **not** prove the
+shipped interactive MSAL sign-in flow or establish an approved application
+registration for other users. That sign-in test remains required before
+calling the direct connection ready for distribution.
 
 ## Measurement and privacy
 

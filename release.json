@@ -1,7 +1,7 @@
 {
-  "version": "0.4.2",
+  "version": "0.4.3",
   "platform": "win32",
   "arch": "x64",
   "engineArch": "x64",
-  "sourceCommit": "42da02eaa219738e98cf9ce054c045f5beaba58b"
+  "sourceCommit": "fa966cc75310bb8e4ca833b2ef38b2d8e7d493e0"
 }
