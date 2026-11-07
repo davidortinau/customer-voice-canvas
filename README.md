@@ -202,6 +202,134 @@ label, percentage, count, and valid-answer denominator. This includes ordered
 satisfaction bars, grouped scales, NPS segments, and individual chart bars.
 Press Escape to dismiss the tooltip.
 
+### Edit, export, and share question charts
+
+Select **Edit** on a question in a section or All questions. In Overview, use
+the small pencil and download icons at the lower right of each question card.
+Each icon has a tooltip and an accessible name.
+Choose a presentation, then select **Save presentation**. Use **Review profile**
+to save a profile first if you opened a quick view. Existing charts remain the
+default until you choose a different presentation.
+
+Choice, ordered-scale, and NPS questions support horizontal bars, columns,
+dot plots, a data table, a 100% stacked bar, pie charts, and donut charts.
+Multiple-choice, number, and date distributions support bars, columns, dots,
+and tables. Pie and 100% stacked charts are not offered for multiple selections
+or numerical and date distributions. No trend, correlation, or extra data
+dimension is inferred. Written-answer questions support the answer reader or
+a counts-only summary. Unknown fields support a summary until mapped.
+
+Chart choices are stored in the saved profile by question ID. They do not
+depend on response counts, file names, timestamps, or source hashes. They stay
+in use after **Refresh data**, after reopening the viewer, and when the same
+profile is used with a new file path. A change to the column structure requires
+profile review. A change to a question type resets chart choices that no longer
+match.
+
+Select **Export graphic** on any question, then choose **Export SVG** or
+**Export PNG**. SVG is scalable. PNG is 2,000 pixels wide. The graphic uses the
+current presentation and includes the question label, counts, denominator,
+scoring method when available, population, and active filters. It does not
+include written answers or contacts. Check question labels and choice labels
+before sharing. Large questions that exceed the PNG size limit must use SVG.
+Wide chart graphics scroll within their panel on small screens.
+
+Open **Share presentation settings** to export a JSON file. Each recipient
+opens their own report data, saves a profile, and selects **Import settings**.
+The viewer checks question identities, original headers, and question types
+before offering **Apply settings**. Live reports also require matching source
+question IDs. A mismatched or invalid file does not change the profile.
+The settings can be used with new response data and a different local file path.
+
+Shared settings contain chart choices, question identities, viewer themes,
+chart palettes, and custom theme definitions. They do
+not contain response rows, contacts, local paths, access tokens, private keys,
+filters, or search terms. They do not replace mappings, scoring, consent,
+section groups, or reading positions. Those remain in each local profile.
+
+### Viewer themes and chart colors
+
+Select **Appearance** to choose viewer colors and chart colors separately.
+Viewer presets include Studio, Sea glass, Iris, Midnight, Graphite, and
+**High contrast**. **Follow system** uses measured light and dark color sets
+and follows the system preference. Essential colors do not inherit untested
+host color overrides. Host fonts stay in use.
+Chart palettes include Original, Coast, Orchid, Woodland, and Clear contrast.
+Changing viewer colors does not change chart marks. Changing the chart palette
+does not change viewer colors.
+
+Open **Create a custom viewer theme** to name a theme and set its background,
+text, muted text, accent, and border colors. Open **Create a custom chart palette**
+to name a palette, set six ordered chart colors, and set three NPS group colors.
+The chart scale interpolates between the six colors. Each report keeps one custom
+viewer theme and one custom chart palette, even when a preset is selected.
+The preview shows the category scale and the separate NPS group colors.
+NPS **Original view** uses the three group colors. Alternative NPS chart types
+use the category scale for individual scores.
+Charts and graphics use solid colors, without hatch or pattern overlays.
+The preview changes only inside the dialog. Select **Save appearance** to apply
+and save changes, or **Cancel** to keep the current settings.
+In quick view, **Apply appearance** changes colors without saving a profile.
+The colors stay for the current view and manual refresh, not a new viewer session.
+Use **Save with profile** to apply the colors and open the profile review.
+Confirm the mappings and select **Save profile and open report** to keep the
+colors after reopening. This does not bypass the privacy and consent checks.
+
+Custom viewer text must have at least 4.5:1 contrast on report surfaces.
+New custom chart edits require at least 3:1 contrast against white exports.
+Errors identify the color to change. **Use readable custom colors** replaces
+draft colors with measured defaults; **Cancel** still leaves saved settings
+unchanged. Color fields have both a native picker and a named hex input.
+SVG and PNG graphics use the selected chart colors with a white background and
+dark text, independent of the viewer theme.
+
+Themes stay with the saved profile after refresh, a restart, or new response data.
+**Export settings** includes both selections and custom definitions in version 2
+settings files. Import checks the definitions before it changes the profile.
+Older version 1 settings files still work and keep the current theme colors.
+Version 2 files require a viewer with theme support.
+
+### Accessibility of themes and charts
+
+The implementation targets WCAG 2.2 AA requirements for
+[text contrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html),
+[non-text contrast](https://www.w3.org/WAI/WCAG22/Understanding/non-text-contrast.html),
+[use of color](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html),
+[hover and focus content](https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html),
+[focus visibility](https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html),
+[reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow.html), and
+[target size](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html).
+This is not a formal conformance claim.
+
+Controls use measured text-colored boundaries and focus rings. Selected themes
+also show **Selected**, rather than a color change alone. Overview icons keep
+their 28-by-28 CSS-pixel targets and accessible names. The snapshot toolbar no
+longer stays over content when you scroll, so it cannot cover keyboard focus.
+Chart tooltips can be hovered and dismissed with Escape.
+
+All viewer/chart combinations use contrasting chart outlines. Pie and stacked
+charts have numbered segments and numbered labels in graphics.
+Original grouped bars use matching group numbers. **View data**
+provides a named HTML table for every distribution, with row and column headers.
+Position, numbers, labels, and the complete
+data table remain available when colors are hard to distinguish.
+Very small pie slices can omit an overlaid number to avoid overlap; the
+clockwise row-order note and numbered entries still identify the data.
+
+High contrast is an extra viewer choice, not a substitute for readable defaults.
+Forced-colors mode uses system control colors and opens distribution data tables
+automatically. Older saved palettes and version 2 settings remain loadable,
+including pale chart fills; outlines, labels, and tables protect their data.
+Saving a new custom-color edit requires the current contrast checks.
+
+Checks cover all shipped theme/palette combinations, UI states, color-vision
+simulations, keyboard controls, and a 320-CSS-pixel viewport, equivalent to
+400% zoom from 1280 pixels. Simulations and accessibility-tree checks do not
+replace testing by people with color-vision deficiencies, human screen-reader
+testing, native Windows high-contrast testing, or a full accessibility review.
+Add suitable alt text when placing exported graphics in a document or slide.
+PNG does not supply a screen-reader data table to the destination application.
+
 The bundled MAUI profile retains the completion-date gate, recent-use
 eligibility, seven-level Top-3-Box satisfaction method, source metadata, and
 explicitly opt-in follow-up prompt. The earlier 921-row acceptance export had
@@ -309,7 +437,7 @@ calling the direct connection ready for distribution.
 
 ```bash
 python3 -m unittest discover -s tests -p '*_test.py'
-node --test tests/server.test.mjs tests/dataverse.test.mjs
+node --test tests/server.test.mjs tests/dataverse.test.mjs tests/presentation.test.mjs tests/themes.test.mjs tests/accessibility.test.mjs
 ```
 
 For the real .NET Developer Survey acceptance input, use an existing Playwright
@@ -344,6 +472,9 @@ CHROMIUM_EXECUTABLE=/full/path/chromium
 
 node tests/live-browser-check.mjs
 node tests/usability-browser-check.mjs
+node tests/presentation-browser-check.mjs
+node tests/themes-browser-check.mjs
+node tests/accessibility-browser-check.mjs
 ```
 
 This checks the approval control, survey selection, shared profile/charts,
@@ -354,6 +485,13 @@ unsupported-format warning checks.
 The usability check exercises file selection and cancellation with a test picker,
 quick view, later profile editing, section tabs, and hover/keyboard tooltips
 with synthetic data.
+The presentation check edits charts, refreshes response data, reopens a saved
+profile, checks SVG and PNG contents, and imports shared settings into a second
+profile with different response data. Set `CUSTOMER_VOICE_EVIDENCE` to a scratch
+folder to save screenshots, a question graphic, and an example settings file.
+The theme check changes viewer and chart colors independently, saves custom
+colors, refreshes and reopens the report, exports themed graphics, imports
+settings into another profile, and checks the compact overview controls.
 The macOS release includes a compiled AppKit file picker. Windows uses a
 Windows Forms file dialog. Linux includes a desktop-portal client. No custom
 folder menu is used. Linux protocol checks use a private D-Bus session and a
