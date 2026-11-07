@@ -1,5 +1,5 @@
 import { chartOptions, chartLabel, questionGraphic } from "./presentation.mjs";
-import { viewerThemes, chartThemes, systemColors, validateAppearance, viewerColors, chartPalette, chartColor, contrast, patternedStyle } from "./themes.mjs";
+import { viewerThemes, chartThemes, systemColors, validateAppearance, viewerColors, chartPalette, chartColor, contrast } from "./themes.mjs";
 const $ = selector => document.querySelector(selector);
 const escape = value => String(value ?? "").replace(/[&<>"']/g, char =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
@@ -193,9 +193,9 @@ function bars(q) {
 function questionData(q) {
     if (!q.distribution) return "";
     return `<details class="chart-data"${matchMedia("(forced-colors: active)").matches ? " open" : ""}><summary>View data: ${escape(q.label)}</summary>
-      <p class="fine">Patterns and numbers identify segments. ${q.kind === "nps" && (!report.presentations?.[q.id] || report.presentations[q.id].chart === "default")
+      <p class="fine">Labels and numbers identify segments. ${q.kind === "nps" && (!report.presentations?.[q.id] || report.presentations[q.id].chart === "default")
         ? "Columns use score labels. The group bar uses the three numbered group labels; the table below lists individual scores."
-        : "Nonzero segments follow this row order from left to right, or clockwise from the top."} Patterns repeat after six entries.</p>
+        : "Nonzero segments follow this row order from left to right, or clockwise from the top."}</p>
       <div class="table-wrap" tabindex="0" role="region" aria-label="${escape(q.label)} data">
       <table><caption>${escape(q.label)}: ${q.valid} valid answers</caption><thead><tr><th scope="col">No.</th><th scope="col">Choice</th><th scope="col">Count</th><th scope="col">Percent</th></tr></thead><tbody>
       ${q.distribution.map((item, index) => `<tr><td>${index + 1}</td><th scope="row">${escape(item.label)}</th><td>${item.count}</td><td>${item.percent}%</td></tr>`).join("")}</tbody></table></div></details>`;
@@ -221,18 +221,18 @@ function originalBars(q) {
           ${q.metric ? `<div class="balance">${["detractors", "passives", "promoters"].map((key, i) => `
           <div ${tip(["Detractors (0-6)", "Passives (7-8)", "Promoters (9-10)"][i], q.metric[key],
               q.valid ? Math.round(q.metric[key] / q.valid * 1000) / 10 : 0, q.valid)}
-            style="width:${q.valid ? q.metric[key] / q.valid * 100 : 0}%;${patternedStyle(i, colors[i])}"><span class="segment-number" aria-hidden="true">${i + 1}</span></div>`).join("")}</div>
+            style="width:${q.valid ? q.metric[key] / q.valid * 100 : 0}%;background:${colors[i]}"><span class="segment-number" aria-hidden="true">${i + 1}</span></div>`).join("")}</div>
           <div class="legend">${["Detractors (0-6)", "Passives (7-8)", "Promoters (9-10)"].map((label, i) =>
-              `<span><i class="swatch" style="${patternedStyle(i, colors[i])}" aria-hidden="true"></i>${i + 1}. ${label}: ${q.metric[["detractors", "passives", "promoters"][i]]}</span>`).join("")}</div>` : ""}`;
+              `<span><i class="swatch" style="background:${colors[i]}" aria-hidden="true"></i>${i + 1}. ${label}: ${q.metric[["detractors", "passives", "promoters"][i]]}</span>`).join("")}</div>` : ""}`;
     }
     if (!q.distribution) return `<p class="notice">${q.kind === "text"
         ? "Read the written answers in All questions." : "This field has no confirmed chart mapping."}</p>`;
     const stacked = q.kind === "ordered" ? `<div class="balance">${q.distribution.map((d, i) =>
-        `<div ${tip(d.label, d.count, d.percent, q.valid)} style="width:${d.percent}%;${patternedStyle(i, scaleColor(i, q.distribution.length))}"><span class="segment-number" aria-hidden="true">${i + 1}</span></div>`).join("")}</div>` : "";
+        `<div ${tip(d.label, d.count, d.percent, q.valid)} style="width:${d.percent}%;background:${scaleColor(i, q.distribution.length)}"><span class="segment-number" aria-hidden="true">${i + 1}</span></div>`).join("")}</div>` : "";
     const palette = chartPalette(report.appearance);
     return `${stacked}<div class="horizontal">${q.distribution.map((d, index) => `
       <div class="bar-row"><div class="bar-label">${escape(d.label)}</div>
-        <div class="bar-track"><div ${tip(d.label, d.count, d.percent, q.valid)} style="width:${Math.min(100, d.percent)}%;height:100%;background:${palette.colors ? chartColor(index, q.distribution.length, palette) : "#3e6e9a"};border-radius:3px"></div></div>
+        <div class="bar-track"><div ${tip(d.label, d.count, d.percent, q.valid)} style="width:${Math.min(100, d.percent)}%;height:100%;background:${chartColor(index, q.distribution.length, palette)};border-radius:3px"></div></div>
         <div class="bar-value">${d.count} / ${d.percent}%</div></div>`).join("")}</div>
       <p class="fine">Denominator: ${q.valid} valid nonblank answers. ${q.multiSelect
         ? "Multiple selections: each respondent counts once per choice. Percentages can sum above 100%." : ""}
@@ -249,9 +249,9 @@ function matrix(group, questions) {
         && JSON.stringify(q.distribution.map(d => d.label)) === JSON.stringify(domain))) return "";
     const colors = domain.map((_, i) => scaleColor(i, domain.length));
     return `<section class="panel"><h3>${escape(group)}</h3><div class="legend">${domain.map((v, i) =>
-        `<span><i class="swatch" style="${patternedStyle(i, colors[i])}" aria-hidden="true"></i>${i + 1}. ${escape(v)}</span>`).join("")}</div>
+        `<span><i class="swatch" style="background:${colors[i]}" aria-hidden="true"></i>${i + 1}. ${escape(v)}</span>`).join("")}</div>
       ${questions.map(q => `<div class="bar-row"><span>${escape(q.label)}</span><div class="balance">
-      ${q.distribution.map((d, index) => `<div ${tip(d.label, d.count, d.percent, q.valid)} style="width:${d.percent}%;${patternedStyle(index, colors[index])}"><span class="segment-number" aria-hidden="true">${index + 1}</span></div>`).join("")}
+      ${q.distribution.map((d, index) => `<div ${tip(d.label, d.count, d.percent, q.valid)} style="width:${d.percent}%;background:${colors[index]}"><span class="segment-number" aria-hidden="true">${index + 1}</span></div>`).join("")}
       </div><span class="fine">n=${q.valid}</span></div>${questionData(q)}`).join("")}</section>`;
 }
 
@@ -473,9 +473,10 @@ $("#import-form").onsubmit = event => {
         else renderMapping();
     });
 };
-$("#review-profile").onclick = () => work("Opening profile settings...", async () => {
+async function reviewProfile() {
     proposal = await api("review"); renderMapping();
-});
+}
+$("#review-profile").onclick = () => work("Opening profile settings...", reviewProfile);
 $("#refresh").onclick = () => work("Reading a complete new snapshot...", async position => {
     $("#cancel-read").hidden = false;
     const next = await api("refresh", { filters });
@@ -714,9 +715,11 @@ function previewAppearance() {
             button.querySelectorAll("i").forEach((sample, index) => sample.style.background = samples[index]);
         }
         $("#theme-preview").style.cssText = `background:${colors.paper};color:${colors.ink};border-color:${colors.line}`;
-        $("#theme-preview").innerHTML = `<div><strong>Your report</strong><span style="color:${colors.muted}">Viewer colors and chart colors stay separate.</span></div>
+        $("#theme-preview").innerHTML = `<div><strong>Your report</strong><span style="color:${colors.muted}">Category colors follow the selected scale. NPS Original view uses the three group colors below. Alternative NPS charts use the category scale.</span></div>
           <div class="preview-bars" aria-hidden="true">${[48, 72, 90, 62, 80, 52].map((height, index) =>
-              `<i style="height:${height}%;background:${chartColor(index, 6, palette)};border:1px solid ${colors.ink};outline:1px solid ${colors.paper}"></i>`).join("")}</div>`;
+              `<i data-preview-color="${index}" style="height:${height}%;background:${chartColor(index, 6, palette)};border:1px solid ${colors.ink};outline:1px solid ${colors.paper}"></i>`).join("")}</div>
+          <div class="legend preview-nps">${["Detractors", "Passives", "Promoters"].map((label, index) =>
+              `<span style="color:${colors.ink}"><i class="swatch" data-preview-nps="${index}" style="background:${palette.nps[index]};border-color:${colors.ink};outline-color:${colors.paper}" aria-hidden="true"></i>${label}</span>`).join("")}</div>`;
         $("#appearance-error").hidden = true;
         $("#repair-colors").hidden = true;
         $("#appearance-error").textContent = "";
@@ -782,8 +785,9 @@ function openAppearance(value = report.appearance) {
         }
         previewAppearance();
     };
-    $("#save-appearance").disabled = Boolean(report.preview);
-    $("#save-appearance").dataset.disabled = String(Boolean(report.preview));
+    $("#save-appearance").textContent = report.preview ? "Apply appearance" : "Save appearance";
+    $("#save-appearance").setAttribute("aria-describedby", report.preview ? "appearance-preview-notice" : "");
+    $("#save-appearance-profile").hidden = !report.preview;
     $("#appearance-preview-notice").hidden = !report.preview;
     previewAppearance();
     $("#appearance-dialog").showModal();
@@ -806,10 +810,16 @@ $("#appearance-form").onsubmit = event => {
     event.preventDefault();
     const appearance = previewAppearance();
     if (!appearance) { $("#appearance-error").focus(); return; }
+    const review = report.preview && event.submitter?.id === "save-appearance-profile";
+    const message = report.preview ? "Applying viewer and chart colors..." : "Saving viewer and chart colors...";
     $("#appearance-dialog").close();
-    work("Saving viewer and chart colors...", async () => {
+    work(message, async () => {
         const next = await api("appearance", { surveyId, appearance });
+        if (!$("#mapping").hidden && proposal?.edit?.id === next.surveyId) {
+            proposal.edit.appearance = structuredClone(next.appearance);
+        }
         await acceptReport(next);
+        if (review) await reviewProfile();
     });
 };
 

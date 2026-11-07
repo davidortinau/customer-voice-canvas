@@ -39,11 +39,29 @@ test("new custom edits reject low contrast, while older settings stay loadable w
         distribution: [{ label: "First", count: 6, percent: 60 }, { label: "Second", count: 4, percent: 40 }] };
     for (const chart of ["pie", "donut", "stacked"]) {
         const svg = questionGraphic(q, chart, "", appearance);
-        assert.match(svg, /<pattern /);
+        assert.doesNotMatch(svg, /<pattern|fill="url\(/);
         assert.match(svg, /chart-number/);
         assert.match(svg, /1\. First/);
         assert.match(svg, /2\. Second/);
         assert.match(svg, /mark-halo/);
         assert.match(svg, /numbered rows/);
+    }
+});
+
+test("solid chart fills preserve exact palette colors without decorative overlays", () => {
+    const data = Array.from({ length: 6 }, (_, index) => ({
+        label: `Choice ${index + 1}`, count: index + 1, percent: Math.round((index + 1) / 21 * 1000) / 10,
+    }));
+    for (const palette of chartThemes) {
+        const appearance = { ...validateAppearance(), chart: palette.id };
+        for (const kind of ["ordered", "choice"]) for (const chart of ["default", "horizontal", "vertical", "dot", "pie", "donut", "stacked"]) {
+            const q = { id: "c1", label: "Question", kind, answered: 21, valid: 21,
+                blank: 0, excluded: 0, distribution: data };
+            const svg = questionGraphic(q, chart, "", appearance);
+            assert.doesNotMatch(svg, /<pattern|fill="url\(|background-image/);
+            const expected = data.map((_, index) => chartColor(index, data.length, palette));
+            const fills = [...svg.matchAll(/<(?:rect|path|circle)[^>]*fill="([^"]+)"[^>]*class="chart-mark"/g)].map(match => match[1]);
+            assert.deepEqual(fills, kind === "ordered" && chart === "default" ? [...expected, ...expected] : expected);
+        }
     }
 });

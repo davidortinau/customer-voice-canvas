@@ -104,7 +104,7 @@
   <form id="appearance-form">
     <h2 id="appearance-title">Make this report your own</h2>
     <p class="muted">Choose the viewer and chart colors separately. Both are saved with this report and included when you share settings.</p>
-    <p id="color-help" class="fine">Use a color picker or enter a six-digit hex value, such as #285abb. Charts use patterns, numbers, and data tables as well as color.</p>
+    <p id="color-help" class="fine">Use a color picker or enter a six-digit hex value, such as #285abb. Charts use labels, numbers, and data tables as well as color.</p>
     <div class="theme-columns">
       <fieldset><legend>Viewer theme</legend><div id="viewer-themes" class="theme-options"></div>
         <details class="custom-theme"><summary>Create a custom viewer theme</summary>
@@ -122,8 +122,8 @@
     <div id="theme-preview" class="theme-preview" aria-label="Theme preview"></div>
     <p id="appearance-error" role="alert" tabindex="-1" hidden></p>
     <button id="repair-colors" type="button" hidden>Use readable custom colors</button>
-    <p id="appearance-preview-notice" class="fine" hidden>Use Review profile to save a profile before saving theme settings.</p>
-    <div class="actions"><button id="save-appearance" class="primary" type="submit">Save appearance</button><button id="cancel-appearance" type="button">Cancel</button></div>
+    <p id="appearance-preview-notice" class="fine" hidden>Apply appearance changes colors in this quick view only. Save with profile opens the profile review so you can confirm and save these colors for later.</p>
+    <div class="actions"><button id="save-appearance" class="primary" type="submit" aria-describedby="appearance-preview-notice">Save appearance</button><button id="save-appearance-profile" type="submit" hidden>Save with profile</button><button id="cancel-appearance" type="button">Cancel</button></div>
   </form>
 </dialog>
 </body>

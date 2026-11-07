@@ -263,8 +263,17 @@ text, muted text, accent, and border colors. Open **Create a custom chart palett
 to name a palette, set six ordered chart colors, and set three NPS group colors.
 The chart scale interpolates between the six colors. Each report keeps one custom
 viewer theme and one custom chart palette, even when a preset is selected.
+The preview shows the category scale and the separate NPS group colors.
+NPS **Original view** uses the three group colors. Alternative NPS chart types
+use the category scale for individual scores.
+Charts and graphics use solid colors, without hatch or pattern overlays.
 The preview changes only inside the dialog. Select **Save appearance** to apply
 and save changes, or **Cancel** to keep the current settings.
+In quick view, **Apply appearance** changes colors without saving a profile.
+The colors stay for the current view and manual refresh, not a new viewer session.
+Use **Save with profile** to apply the colors and open the profile review.
+Confirm the mappings and select **Save profile and open report** to keep the
+colors after reopening. This does not bypass the privacy and consent checks.
 
 Custom viewer text must have at least 4.5:1 contrast on report surfaces.
 New custom chart edits require at least 3:1 contrast against white exports.
@@ -299,11 +308,11 @@ longer stays over content when you scroll, so it cannot cover keyboard focus.
 Chart tooltips can be hovered and dismissed with Escape.
 
 All viewer/chart combinations use contrasting chart outlines. Pie and stacked
-charts have patterns, numbered segments, and numbered labels in graphics.
-Original grouped bars use matching patterns and group numbers. **View data**
+charts have numbered segments and numbered labels in graphics.
+Original grouped bars use matching group numbers. **View data**
 provides a named HTML table for every distribution, with row and column headers.
-Patterns repeat after six entries. Position, numbers, labels, and the complete
-data table remain available when colors or patterns are hard to distinguish.
+Position, numbers, labels, and the complete
+data table remain available when colors are hard to distinguish.
 Very small pie slices can omit an overlaid number to avoid overlap; the
 clockwise row-order note and numbered entries still identify the data.
 

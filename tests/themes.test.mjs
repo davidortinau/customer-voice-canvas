@@ -41,6 +41,81 @@ test("graphic colors depend on the chart palette, not the viewer theme", () => {
     assert.equal(chartColor(0, 6, chartPalette(appearance)), "#8b64ab");
 });
 
+test("quick-view colors apply in memory and persist only after explicit profile confirmation", async () => {
+    const root = await mkdtemp(join(tmpdir(), "cv-quick-theme-test-"));
+    let viewer, second;
+    try {
+        const source = join(root, "survey.csv"), storage = join(root, "profiles");
+        await writeFile(source, "ID,Question\n1,A\n2,B\n");
+        viewer = await startViewer({}, { storage });
+        const proposal = await viewer.operation("inspect", { path: source });
+        const quick = await viewer.operation("preview", { ticket: proposal.ticket });
+        const appearance = { ...validateAppearance(), viewer: "high-contrast", chart: "accessible" };
+        const request = { surveyId: quick.surveyId, appearance };
+        await assert.rejects(viewer.operation("appearance", { ...request, surveyId: "stale" }), /report changed/);
+        const applied = await viewer.operation("appearance", request);
+        assert.deepEqual(applied.appearance, appearance);
+        assert.equal(applied.preview, true);
+        assert.equal(applied.contactEnabled, false);
+        assert.equal((await viewer.operation("config")).surveys.length, 0);
+        await assert.rejects(readFile(join(storage, `${quick.surveyId}.json`)), { code: "ENOENT" });
+        await assert.rejects(viewer.operation("presentation", { surveyId: quick.surveyId,
+            presentations: { c2: { chart: "pie" } } }), /Review and save/);
+        await assert.rejects(viewer.operation("settings", { surveyId: quick.surveyId, action: "export" }), /Review and save/);
+        const invalid = { ...appearance, viewer: "custom",
+            customViewer: { name: "Unreadable", colors: { ...viewerThemes[1].colors, ink: "#f8faff" } } };
+        await assert.rejects(viewer.operation("appearance", { ...request, appearance: invalid }), /contrast/);
+        assert.deepEqual((await viewer.operation("scope")).appearance, appearance);
+        await writeFile(source, "ID,Question\n1,A\n2,B\n3,A\n");
+        const refreshed = await viewer.operation("refresh");
+        assert.deepEqual(refreshed.appearance, appearance);
+        assert.equal(refreshed.scope.selected, 3);
+        assert.equal(refreshed.preview, true);
+        assert.equal(refreshed.contactEnabled, false);
+        const review = await viewer.operation("review");
+        assert.deepEqual(review.previous.appearance, appearance);
+        assert.equal((await viewer.operation("config")).surveys.length, 0);
+        const saved = await viewer.operation("confirm", { ticket: review.ticket, profile: review.previous });
+        assert.equal(saved.preview, false);
+        second = await startViewer({}, { storage });
+        assert.deepEqual((await second.operation("open", { id: saved.surveyId })).appearance, appearance);
+    } finally {
+        await viewer?.close(); await second?.close();
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test("quick-view colors cannot overwrite a reused saved profile before confirmation", async () => {
+    const root = await mkdtemp(join(tmpdir(), "cv-reused-preview-theme-"));
+    let viewer, independent;
+    try {
+        const source = join(root, "survey.csv"), storage = join(root, "profiles");
+        await writeFile(source, "ID,Question\n1,A\n2,B\n");
+        viewer = await startViewer({}, { storage });
+        const proposal = await viewer.operation("inspect", { path: source });
+        const saved = await viewer.operation("confirm", { ticket: proposal.ticket, profile: proposal.profile });
+        const path = join(storage, `${saved.surveyId}.json`), original = await readFile(path);
+        const reused = await viewer.operation("inspect", { path: source, id: saved.surveyId });
+        const preview = await viewer.operation("preview", { ticket: reused.ticket });
+        assert.equal(preview.surveyId, saved.surveyId);
+        const appearance = { ...validateAppearance(), viewer: "studio", chart: "orchid" };
+        await viewer.operation("appearance", { surveyId: saved.surveyId, appearance });
+        await viewer.operation("refresh");
+        const review = await viewer.operation("review");
+        assert.deepEqual(await readFile(path), original);
+        independent = await startViewer({ surveyId: saved.surveyId }, { storage });
+        assert.deepEqual((await independent.operation("open", { id: saved.surveyId })).appearance, saved.appearance);
+        await independent.close(); independent = null;
+        const confirmed = await viewer.operation("confirm", { ticket: review.ticket, profile: review.previous });
+        assert.deepEqual(confirmed.appearance, appearance);
+        independent = await startViewer({ surveyId: saved.surveyId }, { storage });
+        assert.deepEqual((await independent.operation("open", { id: saved.surveyId })).appearance, appearance);
+    } finally {
+        await viewer?.close(); await independent?.close();
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test("themes persist and sharing imports custom colors while version 1 keeps current themes", async () => {
     const root = await mkdtemp(join(tmpdir(), "cv-theme-test-"));
     let viewer, second;

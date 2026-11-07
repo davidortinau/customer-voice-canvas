@@ -87,6 +87,7 @@ dialog p,dialog .actions { margin-block: 15px; }
 .report-settings { margin-bottom: 15px; }
 .report-settings .actions { justify-content: flex-start; margin-block: 12px; flex-wrap: wrap; }
 #appearance-dialog { width: min(840px, calc(100vw - 32px)); max-width: 840px; max-height: 90vh; overflow-y: auto; }
+#appearance-form > .actions { flex-wrap: wrap; }
 .theme-columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
 .theme-columns fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .theme-columns legend { font-weight: 600; margin-bottom: 12px; }
@@ -105,6 +106,7 @@ dialog p,dialog .actions { margin-block: 15px; }
 .theme-preview { padding: 20px; border: 1px solid; border-radius: 8px; margin-block: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: center; }
 .theme-preview strong { display: block; font-size: 19px; }
 .theme-preview .preview-bars { display: flex; align-items: end; gap: 6px; height: 70px; }
+.preview-nps { grid-column: 1 / -1; }
 .preview-bars i { flex: 1; border-radius: 3px 3px 0 0; }
 #appearance-error { color: var(--ink); border-left: 3px solid var(--bad); padding-left: 12px; font-size: 12px; }
 .file-selection { display: flex; align-items: end; gap: 8px; }

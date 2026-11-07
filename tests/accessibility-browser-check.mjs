@@ -94,7 +94,9 @@ try {
     await page.locator('[data-edit-question="c3"]').click();
     await page.locator("#presentation-chart").selectOption("donut");
     await page.locator("#save-presentation").click(); await idle();
-    assert.ok(await page.locator(".question-graphic pattern").count() >= 3);
+    assert.equal(await page.locator(".question-graphic pattern").count(), 0);
+    assert.equal(await page.locator(".chart-segment").evaluateAll(nodes =>
+        nodes.some(node => getComputedStyle(node).backgroundImage !== "none")), false);
     const data = page.locator(".chart-data").last();
     await data.locator("summary").press("Enter");
     assert.equal(await data.locator("tbody tr").count(), 3);
@@ -167,7 +169,7 @@ try {
         combinations: schemes.length * chartThemes.length, measurements,
         limits: "Automated Chromium checks and vision-deficiency simulations. Not a formal conformance review or a human screen-reader test.",
     }, null, 2));
-    console.log(`Accessibility browser check passed: ${schemes.length * chartThemes.length} theme/palette combinations, ${measurements.length} state contrast measurements, patterns/data access, tooltip hover/Escape, custom rejection/repair cancellation, dialog focus, forced colors, and 320 CSS-pixel reflow.`);
+    console.log(`Accessibility browser check passed: ${schemes.length * chartThemes.length} theme/palette combinations, ${measurements.length} state contrast measurements, solid colors/data access, tooltip hover/Escape, custom rejection/repair cancellation, dialog focus, forced colors, and 320 CSS-pixel reflow.`);
 } finally {
     await browser.close(); await viewer.close(); await rm(root, { recursive: true, force: true });
 }

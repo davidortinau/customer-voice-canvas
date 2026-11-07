@@ -230,14 +230,14 @@ export async function startViewer(input = {}, options = {}) {
                 return { surveys, config: candidate.config };
             }
             if (name === "presentation" || name === "appearance") {
-                if (!current || current.record.preview) throw new Error("Review and save the profile before saving chart settings.");
+                if (!current || (current.record.preview && name === "presentation")) throw new Error("Review and save the profile before saving chart settings.");
                 if (request.surveyId !== current.record.profile.id) throw new Error("This report changed. Open its current chart settings.");
                 if (name === "appearance" && request.appearance === undefined) throw new Error("Select viewer and chart theme settings.");
                 const profile = { ...current.record.profile, ...(name === "presentation"
                     ? { presentations: validatePresentations(current.record.profile, request.presentations) }
                     : { appearance: validateAppearance(request.appearance, { editing: true }) }) };
                 const record = { ...current.record, profile };
-                await writeRecord(root, record);
+                if (!record.preview) await writeRecord(root, record);
                 current.record = record;
                 current.report.presentations = profile.presentations;
                 current.report.appearance = validateAppearance(profile.appearance);

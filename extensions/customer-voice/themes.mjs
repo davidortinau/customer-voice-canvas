@@ -100,19 +100,3 @@ export function chartColor(index, length, palette) {
     const start = Math.floor(position), end = Math.min(start + 1, palette.colors.length - 1);
     return mix(palette.colors[start], palette.colors[end], position - start);
 }
-
-export function patternTile(index, color) {
-    const stroke = contrast(color, "#ffffff") >= 3 ? "#ffffff" : "#111111";
-    const shapes = [
-        '<path d="M-2 2L2-2M0 8L8 0M6 10L10 6"/>',
-        '<path d="M-2 6L2 10M0 0L8 8M6-2L10 2"/>',
-        '<path d="M0 4H8M4 0V8"/>',
-        '<path d="M0 2H8M0 6H8"/>',
-        '<path d="M2 0V8M6 0V8"/>',
-        `<circle cx="4" cy="4" r="1.5" fill="${stroke}" stroke="none"/>`,
-    ];
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 8 8"><g fill="none" stroke="${stroke}" stroke-width="1">${shapes[index % shapes.length]}</g></svg>`;
-}
-
-export const patternedStyle = (index, color) =>
-    `background-color:${color};background-image:url('data:image/svg+xml,${encodeURIComponent(patternTile(index, color))}')`;
