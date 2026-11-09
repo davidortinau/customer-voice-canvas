@@ -15,7 +15,7 @@ not a fully validated live connector.
 
 ## Install and open a survey
 
-Version 0.4.2 provides these packages. Marketplace entries are advertised only
+Version 0.5.1 provides these packages. Marketplace entries are advertised only
 after all required GitHub checks pass and the packages are published.
 
 | System | Package name | Built package branch |
@@ -196,6 +196,35 @@ has sections such as Experience, Editors, and AI and tools. The developer
 survey preset marks uncertain parent prompts in its group labels. Unknown
 exports without group labels keep the standard views; no page structure is
 invented. Edit a field's group in Review profile to change section membership.
+
+### Conditional questions and private contact fields
+
+The reader keeps sparse and trailing source columns. A blank answer does not
+show whether the survey displayed a conditional question. Counts use the
+selected cohort; no branch eligibility is inferred from blanks.
+
+All questions omits private fields and export metadata. Expand **private source
+fields** there or in **Private follow-up** to see field names and counts, without
+address values. **Method and column audit** lists every imported source column.
+Email prompts stay private. A research permission prompt that asks "May we
+contact you", does not request an address, and contains only observed Yes/No
+answers can be suggested as a choice question even when it mentions an email
+address. Empty or uncertain fields stay private until reviewed.
+
+Sweepstakes entry is not research consent. The research directory uses one
+confirmed email field and consent rule at a time. For a sweepstakes email,
+select the separate research permission question and its affirmative answer.
+For a different email prompt that itself states research consent, select that
+private field and confirm the explicit opt-in rule. Neither path authorizes
+the other, and no contact rule is enabled automatically. Use the private source
+export for sweepstakes administration. This viewer does not combine contact
+rules from separate branches.
+
+Saved profiles keep their roles and consent rules. If a saved profile marks a
+Yes/No permission question as private, **Review profile** shows the new suggested
+role beside the saved role. Change that field to **choice**, enter its exact
+Yes/No choices, check the research consent mapping, and save only after review.
+An update does not change an existing profile automatically.
 
 Hover a colored chart segment, or focus it with the keyboard, to see its
 label, percentage, count, and valid-answer denominator. This includes ordered
