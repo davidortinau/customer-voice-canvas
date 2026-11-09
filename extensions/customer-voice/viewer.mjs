@@ -99,10 +99,17 @@ function renderMapping() {
         <label>Affirmative consent answer<input id="consent-value" value="${escape(profile.followup?.value || "Yes")}"></label>
         <label><input id="address-consent" type="checkbox"${profile.followup?.addressIsConsent ? " checked" : ""}>The email prompt itself explicitly requests opt-in follow-up</label>
       </div>
+      <p class="notice">Follow-up uses one private email field and one consent rule at a time.
+      Sweepstakes entry is not research consent. Use a separate research permission answer for a sweepstakes email field.
+      Select the opt-in checkbox only when the email prompt itself states research consent.
+      No branch rule is inferred from blank cells. Saved roles stay unchanged until you edit and save them.</p>
       <div class="mapping-list">${fields.map(f => `
         <details class="map-row" data-field="${f.id}">
           <summary>${f.id} / ${escape(f.label)} <span class="fine">[${escape(f.kind)}] / ${f.answered ?? "mapped"} answered</span></summary>
           <p class="fine">${escape(f.reason || "Saved mapping. Check against the current export.")}</p>
+          ${proposal.profile.fields[f.index].kind !== f.kind ? `<p class="notice">The current import suggests
+          ${escape(proposal.profile.fields[f.index].kind)}. The saved role remains ${escape(f.kind)} until you change it.
+          ${escape(proposal.profile.fields[f.index].reason)}</p>` : ""}
           <div class="map-fields">
             <label>Question type<select data-key="kind">${options(
                 ["unknown", "choice", "multiple", "ordered", "nps", "number", "date", "text", "private", "system", "metadata"], f.kind)}</select></label>
@@ -284,8 +291,22 @@ function renderOverview() {
       ${groups.map(group => matrix(group, questions.filter(q => q.group === group))).join("")}
       <div class="grid">${questions.filter(q => q.distribution).slice(0, 8).map(q => `
       <article class="panel overview-card"><h3>${escape(q.label)}</h3>${bars(q)}${questionTools(q, true)}</article>`).join("")}</div>
-      ${renderSourceGroups()}<p class="notice">Every question is available in All questions. This overview shows the first eight charted questions.
+      ${renderSourceGroups()}<p class="notice">All questions lists report questions, not private fields or export metadata.
+      Use Method and column audit to account for every source column. This overview shows the first eight charted questions.
       No overall satisfaction score is inferred.</p>`;
+}
+
+function renderPrivateFields() {
+    const fields = report.questions.filter(q => q.kind === "private");
+    if (!fields.length) return "";
+    return `<details class="notice private-fields"><summary>${fields.length} private source fields are not in the question list</summary>
+      <p>These fields were imported. Values stay out of charts, written answers, chat analysis, and shared presentation settings.
+      Use Private follow-up for research contacts allowed by a saved consent mapping.
+      Use Review profile to check roles and consent. Use Method and column audit for all source columns.</p>
+      <p>Blank cells do not show whether a question was displayed. Sweepstakes entry is not research consent.
+      Review sweepstakes addresses in the private source export, not in this research directory.</p>
+      <ul>${fields.map(q => `<li>${q.id} / ${escape(q.label)} / ${q.answered} answered / ${q.blank} blank</li>`).join("")}</ul>
+      </details>`;
 }
 
 function renderSourceGroups() {
@@ -389,7 +410,8 @@ async function renderContent() {
         if (!questions.some(q => q.id === selected)) selected = questions[0]?.id;
         $("#content").innerHTML = `<div class="explorer"><aside class="question-nav">
           <label>Find a question<input id="question-search" value="${escape(questionSearch)}"></label>
-          <p class="fine">${questions.length} questions / ${report.questions.length} source columns</p><div id="question-list"></div>
+          <p class="fine">${questions.length} questions / ${report.questions.length} source columns</p>
+          ${renderPrivateFields()}<div id="question-list"></div>
           </aside><section id="question-detail" class="detail"></section></div>`;
         renderQuestionList();
         $("#question-search").oninput = event => {
@@ -401,6 +423,7 @@ async function renderContent() {
         $("#content").innerHTML = `<h2>Private follow-up directory</h2><p class="muted">Only addresses allowed by the confirmed consent mapping.
           No metadata email fallback. No automatic outreach.</p>
           <div class="notice">Contact data is private. It is not included in the chart or chat analysis result.</div>
+          ${renderPrivateFields()}
           ${report.contactEnabled ? '<button id="load-contacts">Show consented contacts</button><div class="contacts" id="contacts"></div>'
             : '<p class="notice">Follow-up is not mapped. Use Review profile to select a private email field and its consent rule.</p>'}`;
         if ($("#load-contacts")) $("#load-contacts").onclick = () => work("Loading private contacts...", async () => {
