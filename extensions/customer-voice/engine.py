@@ -170,6 +170,13 @@ def inspect(headers, rows, provenance):
             kind, reason = "metadata", "Private metadata. Only source can be enabled."
         elif lower == "name" or re.search(r"\b(email|e-mail|phone|address|upload)\b", lower):
             kind, reason = "private", "Possible identity or contact data."
+            if (re.search(r"\bmay we contact you\b", lower)
+                    and re.search(r"\bresearch\b", lower)
+                    and not re.search(r"\b(provide|enter|leave|submit)\b", lower)
+                    and values and all(v.casefold() in {"yes", "no"} for v in values)):
+                kind, reason = "choice", (
+                    "Research contact permission with observed Yes/No answers, not addresses. "
+                    "Confirm the consent purpose and contact mapping separately.")
         elif re.search(r"recommend", lower) and values and all(valid_score(v) for v in values):
             kind, reason = "nps", "Recommendation wording and observed integer scores 0-10."
         elif re.search(r"select (all|up to)|choose (all|up to)", lower):
