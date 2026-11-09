@@ -71,6 +71,7 @@ jobs:
           export PLAYWRIGHT_MODULE="$RUNNER_TEMP/browser/node_modules/playwright/index.mjs"
           export CUSTOMER_VOICE_PLUGIN_ROOT="$(node -p "process.cwd() + '/dist/plugin'")"
           node tests/contact-browser-check.mjs
+          node tests/conditional-browser-check.mjs
           node tests/live-browser-check.mjs
           node tests/usability-browser-check.mjs
           node tests/presentation-browser-check.mjs

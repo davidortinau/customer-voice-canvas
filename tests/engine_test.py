@@ -18,6 +18,110 @@ import engine
 
 
 class EngineTests(unittest.TestCase):
+    def conditional_survey(self):
+        headers = ["ID"] + [f"Question {i}" for i in range(2, 160)] + [
+            "Are you a resident of the United States or Puerto Rico (eligibility for the sweepstakes)?",
+            "Want to enter our .NET prize bundle sweepstakes? Please leave your email address below so we can contact you if you are selected as a winner.",
+            "May we contact you at the email address you provided about follow-up research related to your .NET experience?",
+            "May we contact you about follow-up research related to your .NET experience? If you agree, please provide your email address below. By providing your email address, you consent to being contacted by Microsoft for this research.",
+            "Personalized data",
+        ]
+        rows = [[str(i)] + [""] * 158 + tail for i, tail in enumerate([
+            ["Yes", "prize-only@example.test", "No", "", ""],
+            ["Yes", "prize-research@example.test", "Yes", "", ""],
+            ["No", "", "", "alternate@example.test", ""],
+            ["No", "", "", "", ""],
+            ["Yes", "", "", "", ""],
+        ], 1)]
+        return headers, rows
+
+    def test_sparse_conditional_columns_survive_csv_and_xlsx(self):
+        headers, rows = self.conditional_survey()
+        with tempfile.TemporaryDirectory() as folder:
+            for suffix in ["csv", "xlsx"]:
+                with self.subTest(format=suffix):
+                    source = Path(folder) / f"conditional.{suffix}"
+                    if suffix == "csv":
+                        with source.open("w", newline="") as output:
+                            csv.writer(output).writerows([headers, *rows])
+                    else:
+                        book = Workbook()
+                        book.active.append(headers)
+                        for row in rows:
+                            book.active.append(row)
+                        book.save(source)
+                    loaded_headers, loaded_rows, provenance = engine.load(source)
+                    self.assertEqual(loaded_headers, headers)
+                    self.assertEqual(loaded_rows, rows)
+                    profile = engine.inspect(loaded_headers, loaded_rows, provenance)
+                    profile["id"] = "conditional"
+                    self.assertIsNone(profile["followup"])
+                    report = engine.report(loaded_headers, loaded_rows, provenance, profile, {})
+                    self.assertEqual(len(report["questions"]), 164)
+                    trailing = report["questions"][159:]
+                    self.assertEqual([q["kind"] for q in trailing],
+                                     ["choice", "private", "choice", "private", "metadata"])
+                    self.assertEqual([q["answered"] for q in trailing], [5, 2, 2, 1, 0])
+                    self.assertEqual(trailing[2]["blank"], 3)
+                    self.assertEqual(trailing[2]["valid"], 2)
+                    self.assertEqual({d["label"]: d["count"] for d in trailing[2]["distribution"]},
+                                     {"No": 1, "Yes": 1})
+                    self.assertIn("Branch eligibility is unknown", report["scope"]["population"])
+                    self.assertNotIn("@example.test", json.dumps(report))
+                    with self.assertRaisesRegex(engine.SurveyError, "consent mapping"):
+                        engine.review(rows, profile, {}, "key", "contacts")
+                    for field in ["c161", "c163"]:
+                        with self.assertRaisesRegex(engine.SurveyError, "written-answer"):
+                            engine.review(rows, profile, {}, "key", "answers", field)
+                    profile["followup"] = {"contact": "c161", "consent": "c162", "value": "Yes"}
+                    engine.validate(profile, headers, rows)
+                    self.assertEqual([c["email"] for c in engine.review(
+                        rows, profile, {}, "key", "contacts")["contacts"]], ["prize-research@example.test"])
+                    profile["followup"] = {"contact": "c163", "addressIsConsent": True}
+                    engine.validate(profile, headers, rows)
+                    self.assertEqual([c["email"] for c in engine.review(
+                        rows, profile, {}, "key", "contacts")["contacts"]], ["alternate@example.test"])
+
+    def test_research_permission_exception_is_conservative(self):
+        permission = self.conditional_survey()[0][161]
+        for header, values, expected in [
+            (permission, ["Yes", "", "No"], "choice"),
+            (permission, ["yes", "", "no"], "choice"),
+            (permission, ["", ""], "private"),
+            (permission, ["Yes", "person@example.test"], "private"),
+            (permission, ["Maybe"], "private"),
+            ("May we contact you at your email address if you win the sweepstakes?", ["Yes", "No"], "private"),
+            ("May we contact you for research? Please enter your email address.", ["Yes", "No"], "private"),
+            (self.conditional_survey()[0][162], ["Yes", "No"], "private"),
+        ]:
+            with self.subTest(header=header, values=values):
+                field = engine.inspect([header], [[v] for v in values], {"name": "test.csv"})["fields"][0]
+                self.assertEqual(field["kind"], expected)
+                self.assertEqual(field["choices"], list(dict.fromkeys(v for v in values if v))
+                                 if expected == "choice" else [])
+
+    def test_existing_developer_preset_and_saved_roles_stay_unchanged(self):
+        preset = json.loads((Path(engine.__file__).resolve().parents[2] /
+                             "profiles/net-developer-survey.json").read_text())
+        headers = [f"Question {i}" for i in range(1, preset["columns"] + 1)]
+        for index, title in preset["signature"].items():
+            headers[int(index) - 1] = title
+        rows = [[""] * len(headers)]
+        rows[0][159:161] = ["Yes", "old@example.test"]
+        profile = engine.inspect(headers, rows, {"name": "old.csv"})
+        self.assertEqual(profile["title"], preset["title"])
+        self.assertEqual(profile["followup"], preset["followup"])
+        self.assertEqual(profile["fields"][159]["kind"], "choice")
+        self.assertEqual(profile["fields"][160]["kind"], "private")
+        engine.validate(profile, headers, rows)
+        headers, rows = self.conditional_survey()
+        saved = engine.inspect(headers, rows, {"name": "saved.csv"})
+        saved["id"] = "saved"
+        saved["fields"][161].update(kind="private", choices=[], filter=False)
+        report = engine.report(headers, rows, {}, saved, {})
+        self.assertEqual(report["questions"][161]["kind"], "private")
+        self.assertIsNone(saved["followup"])
+
     def test_reader_preserves_unicode_with_non_utf8_stdout(self):
         with tempfile.TemporaryDirectory() as folder:
             source = Path(folder) / "unicode-\u65e5\u672c.xlsx"
